@@ -1,0 +1,7 @@
+/.venv
+/.env
+/.wstoken
+/.vscode
+/build
+/dist
+/*.spec
