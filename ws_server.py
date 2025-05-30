@@ -6,6 +6,7 @@ import subprocess
 import os
 import ipaddress
 import platform
+import threading
 
 SQLITE_DB_PATH = os.path.join("data", "database.sqlite")
 
@@ -96,6 +97,26 @@ def update_stream_forwarding_ip(port, new_ip):
     finally:
         conn.close()
 
+WS_PORTS_FILE = "ws_ports.json"
+ws_ports_lock = threading.Lock()
+
+def save_ws_port(ip, port):
+    # Guarda el par {ip, puerto} en ws_ports.json, sin duplicados
+    with ws_ports_lock:
+        if os.path.exists(WS_PORTS_FILE):
+            with open(WS_PORTS_FILE, "r") as f:
+                try:
+                    data = json.load(f)
+                except Exception:
+                    data = []
+        else:
+            data = []
+        # Evita duplicados
+        if not any(entry["ip"] == ip and entry["puerto"] == port for entry in data):
+            data.append({"ip": ip, "puerto": port})
+            with open(WS_PORTS_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+
 async def handler(websocket, path):
     async for message in websocket:
         try:
@@ -109,6 +130,7 @@ async def handler(websocket, path):
             if not ip or not port:
                 await websocket.send(json.dumps({"status": "error", "msg": "Missing ip or puerto"}))
                 continue
+            save_ws_port(ip, port)
             # Check if the received IP belongs to any WireGuard peer
             wg_peer_ip = get_peer_ip_for_client(ip)
             final_ip = wg_peer_ip if wg_peer_ip else ip
