@@ -1,2 +1,3 @@
 rich
 websockets
+python-dotenv
