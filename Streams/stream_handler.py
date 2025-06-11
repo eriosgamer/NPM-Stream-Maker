@@ -45,7 +45,10 @@ def show_streams():
                 table.add_column("Protocols", style="yellow")
                 table.add_column("Status", style="blue")
 
-                for stream_id, incoming_port, forwarding_host, forwarding_port, tcp_f, udp_f, enabled in streams:
+                # Sort streams by ID to ensure consistent ordering
+                sorted_streams = sorted(streams, key=lambda x: x[0])  # x[0] is stream_id
+
+                for stream_id, incoming_port, forwarding_host, forwarding_port, tcp_f, udp_f, enabled in sorted_streams:
                     protocols = []
                     if tcp_f:
                         protocols.append("TCP")
@@ -250,8 +253,11 @@ async def handle_delete_stream_menu(remote):
     table.add_column("Protocols", style="yellow")
     table.add_column("Status", style="blue")
 
+    # Sort streams by incoming_port to ensure consistent ordering
+    sorted_streams = sorted(streams, key=lambda x: x.get("incoming_port", 0))
+    
     stream_list = []
-    for i, stream in enumerate(streams, 1):
+    for i, stream in enumerate(sorted_streams, 1):
         protocols = []
         if stream.get("tcp_forwarding"):
             protocols.append("TCP")
@@ -380,7 +386,10 @@ async def handle_list_streams_menu(remote):
     table.add_column("Status", style="blue")
     table.add_column("Access Control", style="red")
 
-    for stream in streams:
+    # Sort streams by ID to ensure consistent ordering
+    sorted_streams = sorted(streams, key=lambda x: x.get("id", 0))
+
+    for stream in sorted_streams:
         protocols = []
         if stream.get("tcp_forwarding"):
             protocols.append("TCP")
