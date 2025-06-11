@@ -2,12 +2,15 @@ import argparse
 import logging
 import os
 import sys
+import asyncio
 
 # Add the parent directory to sys.path to allow importing modules from parent folders
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Config import script_loader as sl  # Import script loader utility
 from UI import menu  # Import menu UI module
+from Server.ws_server import start_ws_server
+from Client.ws_client_main_thread import ws_client_main_loop
 
 from rich.console import Console
 
@@ -29,18 +32,21 @@ def main():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--ws-client-only", action="store_true",
-                        help="Run only ws_client.py without dependency checks")
+                        help="Run only ws_client without dependency checks")
     parser.add_argument("--ws-server-only", action="store_true",
-                        help="Run only ws_server.py without dependency checks")
+                        help="Run only ws_server without dependency checks")
     args = parser.parse_args()
 
     if args.ws_client_only:
         # Run only the WebSocket client script
-        sl.run_script("ws_client.py")
+        console.print("[bold green]Starting WebSocket client...[/bold green]")
+        asyncio.run(ws_client_main_loop())
         return
     elif args.ws_server_only:
         # Run only the WebSocket server script
-        sl.run_script("ws_server.py")
+        console.print("[bold green]Starting WebSocket server...[/bold green]")
+        os.environ["RUN_FROM_PANEL"] = "1"  # Set required environment variable
+        start_ws_server()
         return
     
     # Show the main menu in a loop and handle user choices
