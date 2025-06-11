@@ -33,7 +33,7 @@ If you experience connection timeouts, ensure your network allows WebSocket conn
 
 ## System Requirements
 
-- Python
+- Python 3.7+
 - Docker
 - Docker Compose >= 1.29
 - Python packages: `rich`, `websockets`, `python-dotenv` (see `requirements.txt`)
@@ -86,7 +86,7 @@ The application runs through an interactive menu that offers the following optio
 ```
 NPM Stream Maker/
 ├── main.py                          # Main application entry point
-├── requirements.txt                 # Required Python dependencies
+├── requirements.txt                 # Required Python dependencies (rich, websockets, python-dotenv)
 ├── README.md                        # Complete project documentation
 │
 ├── Client/                         # WebSocket client modules
@@ -122,13 +122,13 @@ NPM Stream Maker/
 │   ├── conflict_cleaner.py        # Obsolete conflict cleanup
 │   └── ports_utils.py             # General port utilities
 │
-├── Remote/                         # Remote control and distributed management
-│   ├── remote_control.py          # Main remote controller
-│   ├── remote_handler.py          # Remote operations handler
-│   ├── remote_stream_add.py       # Remote stream addition via WebSocket
-│   ├── menu.py                    # Remote control menu
-│   ├── validation.py              # Remote data validation
-│   └── extra_utils.py             # Additional remote utilities
+├── Remote/                         # Remote control and distributed management (WIP)
+│   ├── remote_control.py          # Main remote controller (WIP)
+│   ├── remote_handler.py          # Remote operations handler (WIP)
+│   ├── remote_stream_add.py       # Remote stream addition via WebSocket (WIP)
+│   ├── menu.py                    # Remote control menu (WIP)
+│   ├── validation.py              # Remote data validation (WIP)
+│   └── extra_utils.py             # Additional remote utilities (WIP)
 │
 ├── Server/                         # WebSocket server
 │   └── ws_server.py               # Main WebSocket server with client management
@@ -203,11 +203,11 @@ The diagram shows the relationships and dependencies between all system modules,
 - **Conflict management** with alternative ports
 - **Complete support** for TCP and UDP protocols
 
-#### 5. Remote Control (`Remote/`) [WIP]
-- **Remote management** of multiple instances
-- **Remote commands** to create/delete streams
-- **Synchronization** between different servers
-- **Service status monitoring**
+#### 5. Remote Control (`Remote/`) - **Work In Progress**
+- **Remote management** of multiple instances (Under development)
+- **Remote commands** to create/delete streams (Under development)
+- **Synchronization** between different servers (Under development)
+- **Service status monitoring** (Under development)
 
 ### Database and Configuration
 
@@ -241,7 +241,7 @@ When multiple clients use the same port:
 - Automatic peer IP management
 - Streams configured for WireGuard internal IPs
 
-### 4. Monitoring and Administration [WIP]
+### 4. Monitoring and Administration
 - Centralized view of all active streams
 - WebSocket connectivity diagnostics
 - Automatic cleanup of obsolete configurations
@@ -254,26 +254,55 @@ When multiple clients use the same port:
 - **`port_conflict_resolutions.json`**: Persistent conflict resolutions
 - **`docker-compose.yml`**: NPM configuration (automatically generated)
 
-## Command Line Commands
+## Command Line Usage
+
+The application supports different execution modes through command-line arguments:
 
 ```bash
-[WIP]
-# Run only WebSocket client
-python main.py --ws-client-only
-[WIP]
-# Run only WebSocket server  
-python main.py --ws-server-only
-
-# Run with complete interface (default)
+# Run with complete interactive interface (default)
 python main.py
+
+# Run only WebSocket client without dependency checks
+python main.py --ws-client-only
+
+# Run only WebSocket server without dependency checks
+python main.py --ws-server-only
 ```
+
+### Command Line Arguments
+
+- **`--ws-client-only`**: Runs only the WebSocket client (`ws_client_main_loop()`) without showing the main menu or performing dependency checks. Useful for automated client deployments.
+
+- **`--ws-server-only`**: Runs only the WebSocket server (`start_ws_server()`) without the main menu. Automatically sets the `RUN_FROM_PANEL` environment variable to `1` and starts the server directly.
+
+- **No arguments**: Launches the full interactive application with the main menu interface, allowing access to all features through the Rich-based UI.
+
+### Error Handling
+
+The application includes comprehensive error handling:
+- **KeyboardInterrupt**: Graceful shutdown when user presses Ctrl+C
+- **Exception handling**: Catches and displays unexpected errors
+- **Logging**: Configures logging with timestamps and levels for debugging
 
 ## Environment Variables
 
 - **`WS_TOKEN`**: WebSocket authentication token
 - **`WS_SERVER_TOKEN`**: WebSocket server token
 - **`SKIP_NPM_CHECK`**: Skip NPM verification on startup
-- **`RUN_FROM_PANEL`**: Control panel execution indicator
+- **`RUN_FROM_PANEL`**: Control panel execution indicator (automatically set when using `--ws-server-only`)
+
+## Dependencies
+
+The project requires the following Python packages (defined in `requirements.txt`):
+
+- **`rich`**: For colorful and interactive console interface
+- **`websockets`**: For WebSocket server and client functionality
+- **`python-dotenv`**: For loading environment variables from `.env` files
+
+Install all dependencies with:
+```bash
+pip install -r requirements.txt
+```
 
 ## Contributions
 
