@@ -64,6 +64,9 @@ SQLITE_DB_PATH = os.path.join(os.getcwd(), "nginx", "data", "database.sqlite")
 # Load the WebSocket token using the token manager from Core
 WS_TOKEN = token_manager.load_ws_token()
 
+# WebSocket Server Configuration
+WS_SERVER_PORT = int(os.environ.get("WS_SERVER_PORT", 8765))  # Default port 8765, configurable via environment
+
 # File paths for port and client assignment tracking
 ASSIGNED_PORTS_FILE = "assigned_ports.json"
 CONNECTED_CLIENTS_FILE = "connected_clients.json"

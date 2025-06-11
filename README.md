@@ -5,14 +5,16 @@ NPM Stream Maker is an advanced automated TCP/UDP stream management application 
 This project is designed to simplify the management of multiple TCP/UDP streams, allowing users to easily create, edit, and delete stream configurations in Nginx Proxy Manager without manual intervention. It also includes a WebSocket server/client for real-time communication and synchronization between multiple instances.
 
 This tool is ideal for users who need to manage multiple game servers, microservices, or distributed applications that require dynamic port management and remote control capabilities.
-It can be used in scenarios such as a VPS is needed to allow access to a private network trough WireGuard, or when multiple game servers are running on different machines and need to be managed centrally using Nginx Proxy Manager as a reverse proxy.
+
+**Personal use case as example**
+- Allows access to a private network through WireGuard, using a VPS as an entry point with NPM to redirect specific ports to the VPN tunnel. These connections are received on an OPNsense router, and using port forwarding, everything is redirected to a secondary NPM instance inside the private network, which is in charge of the final port redirection to the target server.
 
 ## ⚠️ WebSocket Configuration Notes
 
 The application uses optimized WebSocket settings for stability:
 - **Ping Interval**: 60 seconds (increased for better network stability)
-- **Ping Timeout**: 30 seconds (balanced for responsiveness and stability)
-- **Close Timeout**: 10-15 seconds (adequate for clean disconnections)
+- **Ping Timeout**: 120 seconds (balanced for responsiveness and stability)
+- **Close Timeout**: 20 seconds (adequate for clean disconnections)
 - **Connection Retry**: Automatic reconnection with exponential backoff
 
 If you experience connection timeouts, ensure your network allows WebSocket connections and consider adjusting firewall settings.
@@ -42,16 +44,45 @@ If you experience connection timeouts, ensure your network allows WebSocket conn
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/npm-stream-manager.git
-cd npm-stream-manager
+git clone https://github.com/eriosgamer/NPM-Stream-Maker.git
+cd NPM-Stream-Maker
 ```
 
 2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
+2.1. If you are using a virtual environment, make sure to activate it before running the above command.
+2.2. If you are using a system without `pip` installed, you can install it using:
+```bash
+sudo apt install python3-pip  # For Debian/Ubuntu
+```
+```bash
+sudo pacman -S python-pip  # For Arch Linux
+```
+```bash
+sudo dnf install python3-pip  # For Fedora
+```
+```bash
+sudo yum install python3-pip  # For CentOS/RHEL
+```
+2.3. If you are using Windows, you can install `pip` by downloading the [get-pip.py](https://bootstrap.pypa.io/get-pip.py) script and running:
+```bash
+python get-pip.py
+```
+2.4. If you are using macOS, you can install `pip` using Homebrew:
+```bash
+brew install python  # This will install Python and pip
+```
 
-3. Run the application:
+**⚠️ In some systems you might need to install the packages running commands with `sudo` privileges.**
+Like in arch linux you can install the dependencies using:
+```bash
+sudo pacman -S python-rich python-websockets python-dotenv
+```
+
+3. Run the application (might require administrative privileges on some systems):
+Linux ask for sudo and in windows need to run as administrator
 ```bash
 python main.py
 ```
@@ -61,25 +92,26 @@ python main.py
 ### Main Menu
 The application runs through an interactive menu that offers the following options:
 
-1. **Show existing streams** - View all active streams in NPM
-2. **Add streams manually** - Manual creation of new streams
+1. **Show existing streams** - View all active streams in NPM *(requires NPM)*
+2. **Add streams manually** - Manual creation of new streams *(requires NPM)*
 3. **Edit WebSocket URIs** - Configuration of WebSocket connections
-4. **Clean all streams** - Mass deletion of configurations
-5. **Start WebSocket Server** - Launch server for remote communication
-6. **Start WebSocket Client** - Connect as client for automatic port sending
-7. **Run Port Scanner** - Detection of active ports on the system
-8. **WebSocket Diagnostics** - Testing and diagnostic tools
-9. **Conflict resolution summary** - View resolved port conflicts
-10. **Remote Control Menu** - Advanced remote management
+4. **Clear all streams** - Mass deletion of configurations *(requires NPM)*
+5. **Start WebSocket Server** - Launch server for remote communication *(requires NPM)*
+6. **Start WebSocket Client** - Connect as client for automatic port sending *(requires WebSocket URIs)*
+7. **Remote Control Menu** - Advanced remote management *(requires WebSocket URIs)*
+0. **Exit** - Close the application
+
+**Note**: Options requiring NPM will be disabled if Nginx Proxy Manager is not running. Options requiring WebSocket URIs will be disabled if no WebSocket URIs are configured.
 
 ### Typical Workflow
 
-1. **Initial setup**: Run the application and configure WebSocket URIs
-2. **Port detection**: Use the scanner to detect active services
-3. **WebSocket server**: Start the server to receive information from clients
-4. **Automatic clients**: Clients automatically send their detected ports
-5. **Automatic resolution**: System resolves conflicts and creates streams automatically
-6. **Remote management**: Use remote control to manage multiple instances
+1. **Initial setup**: Run the application and configure WebSocket URIs if the application is run for the first time and is a client instance.
+2. **If used as Server**: Start the WebSocket server to listen for client connections
+3. **If used as Client**: Start the WebSocket client to send port information
+4. **Port detection**: Client detects local ports that are common in gaming and sends them to the server
+5. **Automatic resolution**: Server resolves conflicts and creates streams automatically on the host NPM instance
+5.1. If there is multiple NPM instance servers, the local server without wireguard will be used to manage conflicts and send the resolved ports to the remote servers via websocket using the connected clients as a bridge.
+6. **Remote management**: Use remote control to manage multiple instances [Work In Progress]
 
 ## Project Structure
 
@@ -176,7 +208,7 @@ The diagram shows the relationships and dependencies between all system modules,
 ### Main Components
 
 #### 1. WebSocket Server (`Server/ws_server.py`)
-- **Port**: 8765 (configurable)
+- **Port**: Configurable (default: 8765, set via `--ws-server-port` or `WS_SERVER_PORT` environment variable)
 - **Functions**: 
   - Receives port information from multiple clients
   - Manages automatic port conflict resolution
@@ -192,10 +224,10 @@ The diagram shows the relationships and dependencies between all system modules,
   - Filters ports according to allowed list in `ports.txt`
 
 #### 3. Port Scanner (`ports/port_scanner.py`)
-- **Automatic detection** of active TCP/UDP ports
+- **Automatic detection** of active TCP/UDP ports related to gaming (uses AMPTemplates to scan common game ports used in AMP by cubecoders and some hardcoded ports common in steam games)
 - **Cross-platform compatibility** (Windows/Linux)
-- **WireGuard integration** for server detection
-- **Export** results to `ports.txt`
+- **WireGuard integration** for managing reverse proxy connections through WireGuard VPN.
+- **Export** results to `ports.txt`, this list can be used to make a alias in OPNsense for common ports used in games and used in port forwarding.
 
 #### 4. Stream Management (`Streams/`)
 - **Automatic creation** of streams in SQLite database
@@ -219,10 +251,10 @@ The application works directly with:
 ### Conflict Resolution
 
 When multiple clients use the same port:
-1. **Automatic detection** of conflict
-2. **Alternative port assignment** (e.g.: 3306 → 13306)
-3. **Stream creation** with redirection
-4. **Persistence** of resolution in JSON files
+1. **Automatic detection** of conflict, if a port is already in use by another client, the server suggests an alternative port to the client.
+2. **Alternative port assignment** (e.g.: 3306 → 13306), this port is broadcasted to all connected clients and servers so they can update their configurations.
+3. **Stream creation** with redirection to the new port in Nginx Proxy Manager.
+4. **Persistence** of resolution in JSON files so the system can remember the resolution for future sessions.
 
 ## Common Use Cases
 
@@ -249,10 +281,10 @@ When multiple clients use the same port:
 ## Configuration Files
 
 - **`.env`**: WebSocket tokens and environment configuration
-- **`ports.txt`**: List of allowed ports for monitoring
+- **`ports.txt`**: List of allowed ports for monitoring, generated during client startup
 - **`ws_ports.json`**: Client and port mapping
 - **`port_conflict_resolutions.json`**: Persistent conflict resolutions
-- **`docker-compose.yml`**: NPM configuration (automatically generated)
+- **`docker-compose.yml`**: NPM configuration (automatically generated), the network is set to `host` mode to allow direct access to the host ports.
 
 ## Command Line Usage
 
@@ -267,6 +299,12 @@ python main.py --ws-client-only
 
 # Run only WebSocket server without dependency checks
 python main.py --ws-server-only
+
+# Run WebSocket server on a custom port
+python main.py --ws-server-only --ws-server-port 9000
+
+# Run interactive mode with custom WebSocket server port
+python main.py --ws-server-port 9000
 ```
 
 ### Command Line Arguments
@@ -274,6 +312,8 @@ python main.py --ws-server-only
 - **`--ws-client-only`**: Runs only the WebSocket client (`ws_client_main_loop()`) without showing the main menu or performing dependency checks. Useful for automated client deployments.
 
 - **`--ws-server-only`**: Runs only the WebSocket server (`start_ws_server()`) without the main menu. Automatically sets the `RUN_FROM_PANEL` environment variable to `1` and starts the server directly.
+
+- **`--ws-server-port PORT`**: Specifies the port for the WebSocket server (default: 8765). Can be used with any execution mode. Example: `--ws-server-port 9000`
 
 - **No arguments**: Launches the full interactive application with the main menu interface, allowing access to all features through the Rich-based UI.
 
@@ -283,11 +323,13 @@ The application includes comprehensive error handling:
 - **KeyboardInterrupt**: Graceful shutdown when user presses Ctrl+C
 - **Exception handling**: Catches and displays unexpected errors
 - **Logging**: Configures logging with timestamps and levels for debugging
+- **Port conflicts**: Automatic detection and suggestions for alternative ports
 
 ## Environment Variables
 
 - **`WS_TOKEN`**: WebSocket authentication token
 - **`WS_SERVER_TOKEN`**: WebSocket server token
+- **`WS_SERVER_PORT`**: WebSocket server port (default: 8765)
 - **`SKIP_NPM_CHECK`**: Skip NPM verification on startup
 - **`RUN_FROM_PANEL`**: Control panel execution indicator (automatically set when using `--ws-server-only`)
 
