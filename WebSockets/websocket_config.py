@@ -52,9 +52,9 @@ def test_ws_connection(uri, token):
             # Simplified connection for maximum compatibility with timeout
             async with websockets.connect(
                 uri,
-                ping_interval=60,  # Aumentado de None a 60 segundos
-                ping_timeout=30,   # Añadido timeout para ping
-                close_timeout=10      # Aumentado timeout de cierre
+                ping_interval=60,  # Increased from None to 60 seconds
+                ping_timeout=30,   # Added ping timeout
+                close_timeout=10      # Increased close timeout
             ) as websocket:
                 # Send test message with token for validation
                 test_data = {

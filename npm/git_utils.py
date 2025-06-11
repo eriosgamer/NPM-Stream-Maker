@@ -4,28 +4,28 @@ import shutil
 import subprocess
 from rich.progress import Progress
 
-# Este módulo proporciona utilidades para trabajar con repositorios git,
-# específicamente clonar un repositorio con una barra de progreso usando 'rich'.
+# This module provides utilities for working with git repositories,
+# specifically cloning a repository with a progress bar using 'rich'.
 
 def repo_clone(repo_url, destino, console):
     """
-    Clona un repositorio git mostrando una barra de progreso.
-    Elimina el destino si ya existe antes de clonar.
-    Lanza una excepción si falla el clonado.
+    Clones a git repository showing a progress bar.
+    Removes the destination if it already exists before cloning.
+    Raises an exception if cloning fails.
     Args:
-        repo_url (str): URL del repositorio git a clonar.
-        destino (str): Ruta donde se clonará el repositorio.
-        console: Objeto de consola Rich (no utilizado en esta función).
+        repo_url (str): URL of the git repository to clone.
+        destino (str): Path where the repository will be cloned.
+        console: Rich console object (not used in this function).
     """
-    # Clonar el repositorio con barra de progreso
+    # Clone the repository with progress bar
     if os.path.exists(destino):
-        # Eliminar el directorio de destino si ya existe
+        # Remove the destination directory if it already exists
         shutil.rmtree(destino)
     with Progress() as progress:
-        # Agregar una nueva tarea a la barra de progreso para la clonación
+        # Add a new task to the progress bar for cloning
         task = progress.add_task(
             "[cyan]Cloning AMPTemplates repository...", total=100)
-        # Usar subprocess para clonar y mostrar el progreso simulado
+        # Use subprocess to clone and show simulated progress
         process = subprocess.Popen(
             ["git", "clone", "--progress", repo_url, destino],
             stdout=subprocess.PIPE,
@@ -34,18 +34,18 @@ def repo_clone(repo_url, destino, console):
             bufsize=1
         )
         percent = 0
-        # Leer líneas de stderr para analizar la salida del progreso de git
+        # Read lines from stderr to parse git progress output
         for line in process.stderr:
             if "Receiving objects" in line:
-                # Extraer el porcentaje de la línea usando expresiones regulares
+                # Extract percentage from line using regular expressions
                 match = re.search(r'(\d+)%', line)
                 if match:
                     percent = int(match.group(1))
-                    # Actualizar la barra de progreso con el porcentaje actual
+                    # Update progress bar with current percentage
                     progress.update(task, completed=percent)
         process.wait()
-        # Asegurarse de que la barra de progreso llegue al 100% al final
+        # Make sure progress bar reaches 100% at the end
         progress.update(task, completed=100)
     if process.returncode != 0:
-        # Lanzar una excepción si falló el comando git clone
+        # Raise exception if git clone command failed
         raise Exception("Error cloning AMPTemplates repository.")

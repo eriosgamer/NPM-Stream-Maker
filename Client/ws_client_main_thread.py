@@ -66,7 +66,7 @@ async def ws_client_main_loop():
 
     sent_ports = set()
     port_last_seen = {}
-    ping_interval = 90     # Aumentado de 60 a 90 segundos
+    ping_interval = 90     # Increased from 60 to 90 seconds
     inactive_timeout = 600  # 10 minutes
 
     while True:
@@ -75,12 +75,12 @@ async def ws_client_main_loop():
             async with websockets.connect(
                 server_uri, 
                 ping_interval=ping_interval, 
-                ping_timeout=30,    # Aumentado de 10 a 30 segundos
-                close_timeout=15    # Añadido timeout de cierre
+                ping_timeout=30,    # Increased from 10 to 30 seconds
+                close_timeout=15    # Added close timeout
             ) as websocket:
                 # Initial authentication
                 await websocket.send(json.dumps({"token": server_token}))
-                token_response = await asyncio.wait_for(websocket.recv(), timeout=10)  # Aumentado timeout
+                token_response = await asyncio.wait_for(websocket.recv(), timeout=10)  # Increased timeout
                 token_result = json.loads(token_response)
                 if token_result.get("status") != "ok":
                     console.print(f"[bold red][WS_CLIENT][/bold red] Token rejected by server")
