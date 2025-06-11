@@ -44,9 +44,9 @@ def show_websocket_diagnostic():
                 try:
                     async with websockets.connect(
                         uri,
-                        ping_interval=60,  # Aumentado de 5 a 60 segundos
-                        ping_timeout=30,   # Añadido timeout para ping
-                        close_timeout=10   # Añadido timeout de cierre
+                        ping_interval=60,  # Increased from 5 to 60 seconds
+                        ping_timeout=30,   # Added ping timeout
+                        close_timeout=10   # Added close timeout
                     ) as websocket:
                         console.print(
                             "[bold green]  ✅ Connection: SUCCESS[/bold green]")

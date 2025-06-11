@@ -101,9 +101,9 @@ class RemoteControl:
             # Use longer timeout and configure connection parameters
             websocket = await websockets.connect(
                 uri, 
-                ping_timeout=60,    # Aumentado de 30 a 60 segundos
-                ping_interval=120,  # Aumentado de 60 a 120 segundos  
-                close_timeout=20,   # Aumentado de 15 a 20 segundos
+                ping_timeout=60,    # Increased from 30 to 60 seconds
+                ping_interval=120,  # Increased from 60 to 120 seconds  
+                close_timeout=20,   # Increased from 15 to 20 seconds
                 max_size=2**20,     # 1MB
                 max_queue=2**5      # 32 messages
             )
@@ -113,7 +113,7 @@ class RemoteControl:
             await websocket.send(json.dumps(token_data))
             
             # Wait for token validation
-            response = await asyncio.wait_for(websocket.recv(), timeout=20)  # Aumentado timeout
+            response = await asyncio.wait_for(websocket.recv(), timeout=20)  # Increased timeout
             result = json.loads(response)
             
             if result.get("status") != "ok":
@@ -125,7 +125,7 @@ class RemoteControl:
             capabilities_query = {"token": token, "query_capabilities": True}
             await websocket.send(json.dumps(capabilities_query))
             
-            capabilities_response = await asyncio.wait_for(websocket.recv(), timeout=20)  # Aumentado timeout
+            capabilities_response = await asyncio.wait_for(websocket.recv(), timeout=20)  # Increased timeout
             capabilities = json.loads(capabilities_response)
             
             if capabilities.get("status") == "ok":
@@ -393,7 +393,7 @@ class RemoteControl:
         if failed_count > 0:
             console.print(f"[bold red][REMOTE][/bold red] Failed to reconnect to {failed_count} servers")
 
-    # También necesitamos agregar métodos que faltan para crear, eliminar y listar streams remotamente
+    # We also need to add missing methods to create, delete and list streams remotely
     async def create_remote_stream(self, server_key, stream_config):
         """
         Creates a stream remotely on a server.

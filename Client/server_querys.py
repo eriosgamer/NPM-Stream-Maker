@@ -25,16 +25,16 @@ async def query_server_capabilities(uri, token):
     try:
         async with websockets.connect(
             uri, 
-            ping_timeout=60,    # Aumentado de 30 a 60 segundos
-            ping_interval=120,  # Aumentado de 60 a 120 segundos
-            close_timeout=20    # Añadido timeout de cierre
+            ping_timeout=60,    # Increased from 30 to 60 seconds
+            ping_interval=120,  # Increased from 60 to 120 seconds
+            close_timeout=20    # Added close timeout
         ) as websocket:
             # Send token for authentication
             token_data = {"token": token}
             await websocket.send(json.dumps(token_data))
             
             # Wait for token validation
-            token_response = await asyncio.wait_for(websocket.recv(), timeout=15)  # Aumentado timeout
+            token_response = await asyncio.wait_for(websocket.recv(), timeout=15)  # Increased timeout
             token_result = json.loads(token_response)
             
             if token_result.get("status") != "ok":
@@ -50,7 +50,7 @@ async def query_server_capabilities(uri, token):
             await websocket.send(json.dumps(capabilities_query))
             
             # Wait for capabilities response
-            capabilities_response = await asyncio.wait_for(websocket.recv(), timeout=15)  # Aumentado timeout
+            capabilities_response = await asyncio.wait_for(websocket.recv(), timeout=15)  # Increased timeout
             capabilities = json.loads(capabilities_response)
             
             if capabilities.get("status") == "ok":
@@ -89,16 +89,16 @@ async def send_ports_to_conflict_resolution_server(uri, token, local_ip, hostnam
     try:
         async with websockets.connect(
             uri, 
-            ping_timeout=60,    # Aumentado de 15 a 60 segundos
-            ping_interval=120,  # Añadido ping interval
-            close_timeout=20    # Añadido timeout de cierre
+            ping_timeout=60,    # Increased from 15 to 60 seconds
+            ping_interval=120,  # Added ping interval
+            close_timeout=20    # Added close timeout
         ) as websocket:
             # Send token for authentication
             token_data = {"token": token}
             await websocket.send(json.dumps(token_data))
 
             # Wait for token validation
-            token_response = await asyncio.wait_for(websocket.recv(), timeout=15)  # Aumentado timeout
+            token_response = await asyncio.wait_for(websocket.recv(), timeout=15)  # Increased timeout
             token_result = json.loads(token_response)
 
             if token_result.get("status") != "ok":
@@ -121,7 +121,7 @@ async def send_ports_to_conflict_resolution_server(uri, token, local_ip, hostnam
             await websocket.send(json.dumps(data))
 
             # Wait for response
-            response_msg = await asyncio.wait_for(websocket.recv(), timeout=45)  # Aumentado de 30 a 45 segundos
+            response_msg = await asyncio.wait_for(websocket.recv(), timeout=45)  # Increased from 30 to 45 seconds
             response = json.loads(response_msg)
 
             if response.get("status") == "ok":
