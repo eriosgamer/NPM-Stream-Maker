@@ -63,7 +63,7 @@ async def send_remote_command(self, server_key, command, params=None):
         await websocket.send(json.dumps(command_data))
 
         # Wait for response with longer timeout
-        response = await asyncio.wait_for(websocket.recv(), timeout=45)
+        response = await asyncio.wait_for(websocket.recv(), timeout=60)  # Aumentado de 45 a 60 segundos
         result = json.loads(response)
 
         # Update last ping time
@@ -442,45 +442,6 @@ async def list_remote_streams(self, server_key):
         console.print(
             f"[bold red][REMOTE][/bold red] Error getting streams from {server_key}: {e}")
         return None
-
-def show_connected_servers(self):
-    """
-    Displays a table with connected servers and their capabilities.
-    """
-    if not self.connections:
-        console.print(
-            "[bold yellow][REMOTE][/bold yellow] No servers connected")
-        return
-
-    table = Table(title="Connected Servers", show_lines=True)
-    table.add_column("Server", style="cyan")
-    table.add_column("URI", style="magenta")
-    table.add_column("Type", style="green")
-    table.add_column("Connection", style="white")
-    table.add_column("WireGuard", style="blue")
-    table.add_column("Conflict Resolution", style="yellow")
-
-    for server_key, connection in self.connections.items():
-        capabilities = connection["capabilities"]
-
-        # Checking connection status asynchronously would be better, but for display purposes
-        # we'll check if websocket is closed
-        try:
-            connection_status = "🟢 Active" if not connection["websocket"].closed else "🔴 Closed"
-        except:
-            connection_status = "🔴 Error"
-
-        table.add_row(
-            server_key,
-            connection["uri"],
-            capabilities.get("server_type", "unknown"),
-            connection_status,
-            "✅" if capabilities.get("has_wireguard", False) else "❌",
-            "✅" if capabilities.get(
-                "conflict_resolution_server", False) else "❌"
-        )
-
-    console.print(table)
 
 async def disconnect_all(self):
     """

@@ -150,9 +150,9 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
 
             async with websockets.connect(
                 ws_config.uri,
-                ping_interval=ws_config.ping_interval,
-                ping_timeout=10,
-                close_timeout=5,
+                ping_interval=60,          # Aumentado para mejor estabilidad
+                ping_timeout=30,           # Aumentado de 10 a 30 segundos
+                close_timeout=10,          # Mantenido en 10 segundos
                 max_size=2**20,
                 max_queue=32,
                 compression=None

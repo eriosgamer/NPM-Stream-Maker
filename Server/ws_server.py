@@ -154,9 +154,9 @@ async def main():
             ex_util.handler,
             "0.0.0.0",
             8765,
-            ping_interval=20,  # Send ping every 20 seconds
-            ping_timeout=10,   # Wait 10 seconds for pong
-            close_timeout=5,   # Quick close timeout
+            ping_interval=60,  # Aumentado de 20 a 60 segundos
+            ping_timeout=30,   # Aumentado de 10 a 30 segundos
+            close_timeout=10,  # Aumentado de 5 a 10 segundos
             max_size=2**20,    # 1MB max message size
             max_queue=32,      # Max 32 messages in queue
             compression=None   # Disable compression for better compatibility

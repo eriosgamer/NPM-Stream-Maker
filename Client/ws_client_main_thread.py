@@ -66,16 +66,21 @@ async def ws_client_main_loop():
 
     sent_ports = set()
     port_last_seen = {}
-    ping_interval = 30
+    ping_interval = 90     # Aumentado de 60 a 90 segundos
     inactive_timeout = 600  # 10 minutes
 
     while True:
         try:
             console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Connecting to server {server_uri} ...")
-            async with websockets.connect(server_uri, ping_interval=ping_interval, ping_timeout=10) as websocket:
+            async with websockets.connect(
+                server_uri, 
+                ping_interval=ping_interval, 
+                ping_timeout=30,    # Aumentado de 10 a 30 segundos
+                close_timeout=15    # Añadido timeout de cierre
+            ) as websocket:
                 # Initial authentication
                 await websocket.send(json.dumps({"token": server_token}))
-                token_response = await asyncio.wait_for(websocket.recv(), timeout=5)
+                token_response = await asyncio.wait_for(websocket.recv(), timeout=10)  # Aumentado timeout
                 token_result = json.loads(token_response)
                 if token_result.get("status") != "ok":
                     console.print(f"[bold red][WS_CLIENT][/bold red] Token rejected by server")
@@ -133,11 +138,11 @@ async def ws_client_main_loop():
                     await asyncio.sleep(ping_interval)
 
         except (websockets.ConnectionClosed, ConnectionRefusedError) as e:
-            console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Connection lost: {e}. Reconnecting in 5 seconds...")
-            await asyncio.sleep(5)
+            console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Connection lost: {e}. Reconnecting in 10 seconds...")  # Aumentado tiempo de reconexión
+            await asyncio.sleep(10)  # Aumentado de 5 a 10 segundos
         except Exception as e:
             console.print(f"[bold red][WS_CLIENT][/bold red] Error in main loop: {e}")
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)  # Aumentado de 5 a 10 segundos
 
 
 # -----------------------------------------------------------------------------

@@ -42,7 +42,12 @@ def show_websocket_diagnostic():
 
                 # Test basic connectivity
                 try:
-                    async with websockets.connect(uri, ping_timeout=5) as websocket:
+                    async with websockets.connect(
+                        uri,
+                        ping_interval=60,  # Aumentado de 5 a 60 segundos
+                        ping_timeout=30,   # Añadido timeout para ping
+                        close_timeout=10   # Añadido timeout de cierre
+                    ) as websocket:
                         console.print(
                             "[bold green]  ✅ Connection: SUCCESS[/bold green]")
 
@@ -187,6 +192,7 @@ def get_ws_uris_and_tokens():
     
     if not uris:
         console.print("[bold red][WS_CLIENT][/bold red] No WebSocket URIs configured")
+        console.print("[bold yellow]Assuming first startup or server-only usage[/bold yellow]")
         return []
     
     if not tokens:

@@ -1,9 +1,26 @@
-# NPM Stream Manager
+# NPM Stream Maker
 
-NPM Stream Manager is an advanced automated TCP/UDP stream management application for [Nginx Proxy Manager](https://nginxproxymanager.com/). It provides a complete system for automatic port detection, conflict resolution, remote management via WebSocket, and WireGuard support, all through an interactive menu interface.
+NPM Stream Maker is an advanced automated TCP/UDP stream management application for [Nginx Proxy Manager](https://nginxproxymanager.com/). It provides a complete system for automatic port detection, conflict resolution, remote management via WebSocket, and WireGuard support, all through an interactive menu interface.
+
+This project is designed to simplify the management of multiple TCP/UDP streams, allowing users to easily create, edit, and delete stream configurations in Nginx Proxy Manager without manual intervention. It also includes a WebSocket server/client for real-time communication and synchronization between multiple instances.
+
+This tool is ideal for users who need to manage multiple game servers, microservices, or distributed applications that require dynamic port management and remote control capabilities.
+It can be used in scenarios such as a VPS is needed to allow access to a private network trough WireGuard, or when multiple game servers are running on different machines and need to be managed centrally using Nginx Proxy Manager as a reverse proxy.
+
+## ⚠️ WebSocket Configuration Notes
+
+The application uses optimized WebSocket settings for stability:
+- **Ping Interval**: 60 seconds (increased for better network stability)
+- **Ping Timeout**: 30 seconds (balanced for responsiveness and stability)
+- **Close Timeout**: 10-15 seconds (adequate for clean disconnections)
+- **Connection Retry**: Automatic reconnection with exponential backoff
+
+If you experience connection timeouts, ensure your network allows WebSocket connections and consider adjusting firewall settings.
+
 
 ## Key Features
 
+- **Automatic Deployment of NPM**: Automatically deploys Nginx Proxy Manager using Docker Compose if needed
 - **Automated Stream Management**: Automatic creation, editing, and deletion of TCP/UDP stream configurations in Nginx Proxy Manager
 - **Automatic Port Detection**: Real-time scanning of ports in use on the local system
 - **Intelligent Conflict Resolution**: Automatic system to resolve port conflicts by assigning alternative ports
@@ -16,10 +33,9 @@ NPM Stream Manager is an advanced automated TCP/UDP stream management applicatio
 
 ## System Requirements
 
-- Python >= 3.8
-- Docker >= 20.x
+- Python
+- Docker
 - Docker Compose >= 1.29
-- A running Nginx Proxy Manager instance
 - Python packages: `rich`, `websockets`, `python-dotenv` (see `requirements.txt`)
 
 ## Installation

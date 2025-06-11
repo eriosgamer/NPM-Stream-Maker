@@ -669,7 +669,7 @@ async def periodic_cleanup():
     """
     while True:
         try:
-            await asyncio.sleep(60)  # Run every minute
+            await asyncio.sleep(120)  # Aumentado de 60 a 120 segundos para reducir carga
             cleanup_disconnected_clients()
         except Exception as e:
             console.print(f"[bold red][WS][/bold red] Error in periodic cleanup: {e}")
