@@ -33,6 +33,7 @@ async def main():
     """
     console.print(f"[bold green][WS][/bold green] Starting WebSocket server initialization...")
     console.print(f"[bold cyan][WS][/bold cyan] Server start time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    console.print(f"[bold cyan][WS][/bold cyan] Configured port: {cfg.WS_SERVER_PORT}")
     
     if not cfg.WS_TOKEN:
         console.print("[bold red][WS][/bold red] No WebSocket server token found in .env file")
@@ -69,24 +70,24 @@ async def main():
     else:
         console.print("[bold yellow][WS][/bold yellow] Skipping NPM check (SKIP_NPM_CHECK=true)")
     
-    # Check if port 8765 is available
-    console.print("[bold cyan][WS][/bold cyan] Checking if port 8765 is available...")
+    # Check if port is available
+    console.print(f"[bold cyan][WS][/bold cyan] Checking if port {cfg.WS_SERVER_PORT} is available...")
     
     try:
         port_check_start = time.time()
-        port_in_use = pu.is_port_in_use(8765)
+        port_in_use = pu.is_port_in_use(cfg.WS_SERVER_PORT)
         port_check_duration = time.time() - port_check_start
         
         console.print(f"[bold cyan][WS][/bold cyan] Port check completed in {port_check_duration:.2f} seconds")
         
         if port_in_use:
-            console.print(f"[bold yellow][WS][/bold yellow] Port 8765 is already in use")
+            console.print(f"[bold yellow][WS][/bold yellow] Port {cfg.WS_SERVER_PORT} is already in use")
             
             try:
-                processes = pu.get_process_using_port(8765)
+                processes = pu.get_process_using_port(cfg.WS_SERVER_PORT)
                 
                 if processes:
-                    console.print(f"[bold yellow][WS][/bold yellow] Process(es) using port 8765:")
+                    console.print(f"[bold yellow][WS][/bold yellow] Process(es) using port {cfg.WS_SERVER_PORT}:")
                     for i, (pid, command) in enumerate(processes, 1):
                         console.print(f"[bold white]  {i}. PID: {pid}, Command: {command}[/bold white]")
                     
@@ -124,24 +125,24 @@ async def main():
                             time.sleep(5)
                             
                             # Check again if port is now available
-                            if not pu.is_port_in_use(8765):
-                                console.print("[bold green][WS][/bold green] Port 8765 is now available")
+                            if not pu.is_port_in_use(cfg.WS_SERVER_PORT):
+                                console.print(f"[bold green][WS][/bold green] Port {cfg.WS_SERVER_PORT} is now available")
                             else:
-                                console.print("[bold red][WS][/bold red] Port 8765 is still in use after termination attempts")
+                                console.print(f"[bold red][WS][/bold red] Port {cfg.WS_SERVER_PORT} is still in use after termination attempts")
                                 console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
                         else:
                             console.print("[bold red][WS][/bold red] Failed to terminate any existing processes")
                     else:
-                        console.print("[bold yellow][WS][/bold yellow] Non-WebSocket processes are using port 8765")
+                        console.print(f"[bold yellow][WS][/bold yellow] Non-WebSocket processes are using port {cfg.WS_SERVER_PORT}")
                         console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
                 else:
-                    console.print("[bold yellow][WS][/bold yellow] Could not identify the process using port 8765")
+                    console.print(f"[bold yellow][WS][/bold yellow] Could not identify the process using port {cfg.WS_SERVER_PORT}")
                     console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
             except Exception as e:
                 console.print(f"[bold red][WS][/bold red] Error checking port usage: {e}")
                 console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
         else:
-            console.print("[bold green][WS][/bold green] Port 8765 is available")
+            console.print(f"[bold green][WS][/bold green] Port {cfg.WS_SERVER_PORT} is available")
     except Exception as e:
         console.print(f"[bold red][WS][/bold red] Error checking port availability: {e}")
         console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
@@ -153,7 +154,7 @@ async def main():
         server = await websockets.serve(
             ex_util.handler,
             "0.0.0.0",
-            8765,
+            cfg.WS_SERVER_PORT,
             ping_interval=60,  # Aumentado de 20 a 60 segundos
             ping_timeout=30,   # Aumentado de 10 a 30 segundos
             close_timeout=10,  # Aumentado de 5 a 10 segundos
@@ -169,9 +170,11 @@ async def main():
         try:
             hostname = socket.gethostname()
             local_ip = socket.gethostbyname(hostname)
-            console.print(f"[bold white]  - ws://{local_ip}:8765[/bold white]")
+            console.print(f"[bold white]  - ws://{local_ip}:{cfg.WS_SERVER_PORT}[/bold white]")
+            console.print(f"[bold white]  - ws://localhost:{cfg.WS_SERVER_PORT}[/bold white]")
+            console.print(f"[bold white]  - ws://127.0.0.1:{cfg.WS_SERVER_PORT}[/bold white]")
         except:
-            pass
+            console.print(f"[bold white]  - ws://localhost:{cfg.WS_SERVER_PORT}[/bold white]")
         
         console.print(f"[bold yellow][WS][/bold yellow] Press Ctrl+C to stop the server")
         
@@ -260,18 +263,21 @@ async def main():
         
     except OSError as e:
         if "Address already in use" in str(e):
-            console.print(f"[bold red][WS][/bold red] Port 8765 is still in use after cleanup attempts")
+            console.print(f"[bold red][WS][/bold red] Port {cfg.WS_SERVER_PORT} is still in use after cleanup attempts")
             console.print(f"[bold yellow][WS][/bold yellow] This may indicate:")
-            console.print(f"[bold white]  - Another WebSocket server is running[/bold white]")
+            console.print(f"[bold white]  - Another WebSocket server is running on port {cfg.WS_SERVER_PORT}[/bold white]")
             console.print(f"[bold white]  - A process is still releasing the port[/bold white]")
             console.print(f"[bold white]  - System networking issue[/bold white]")
             console.print(f"[bold cyan][WS][/bold cyan] Try waiting a few moments and running the server again")
+            console.print(f"[bold cyan][WS][/bold cyan] Or use a different port: --ws-server-port <PORT>[/bold cyan]")
         else:
-            console.print(f"[bold red][WS][/bold red] Failed to bind to port 8765: {e}")
+            console.print(f"[bold red][WS][/bold red] Failed to bind to port {cfg.WS_SERVER_PORT}: {e}")
         
         console.print(f"[bold yellow][WS][/bold yellow] You can try:")
-        console.print(f"[bold white]  - Use 'netstat -tulpn | grep 8765' to check what's using the port[/bold white]")
+        console.print(f"[bold white]  - Use 'netstat -tulpn | grep {cfg.WS_SERVER_PORT}' to check what's using the port[/bold white]")
         console.print(f"[bold white]  - Kill the process manually: sudo kill -9 <PID>[/bold white]")
+        console.print(f"[bold white]  - Use a different port: --ws-server-port <PORT>[/bold white]")
+        console.print(f"[bold white]  - Set environment variable: WS_SERVER_PORT=<PORT>[/bold white]")
         console.print(f"[bold white]  - Wait for the process to finish[/bold white]")
         console.print(f"[bold white]  - Restart your system if necessary[/bold white]")
         return False
