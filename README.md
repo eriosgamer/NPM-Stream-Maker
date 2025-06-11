@@ -187,7 +187,7 @@ The diagram shows the relationships and dependencies between all system modules,
 - **Conflict management** with alternative ports
 - **Complete support** for TCP and UDP protocols
 
-#### 5. Remote Control (`Remote/`)
+#### 5. Remote Control (`Remote/`) [WIP]
 - **Remote management** of multiple instances
 - **Remote commands** to create/delete streams
 - **Synchronization** between different servers
@@ -225,7 +225,7 @@ When multiple clients use the same port:
 - Automatic peer IP management
 - Streams configured for WireGuard internal IPs
 
-### 4. Monitoring and Administration
+### 4. Monitoring and Administration [WIP]
 - Centralized view of all active streams
 - WebSocket connectivity diagnostics
 - Automatic cleanup of obsolete configurations
@@ -241,9 +241,10 @@ When multiple clients use the same port:
 ## Command Line Commands
 
 ```bash
+[WIP]
 # Run only WebSocket client
 python main.py --ws-client-only
-
+[WIP]
 # Run only WebSocket server  
 python main.py --ws-server-only
 
