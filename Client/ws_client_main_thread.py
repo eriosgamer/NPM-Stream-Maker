@@ -8,7 +8,7 @@ from rich.console import Console
 import websockets
 from Client import ws_client as wsc
 from Client import port_file_reader as pfr
-console = Console()
+from UI import console_handler as ch
 
 # Add parent directory to sys.path to allow imports from sibling modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,29 +28,30 @@ from WebSockets import diagnostics
 async def ws_client_main_loop():
     """
     Main client loop that maintains persistent connection and detects server disconnects.
-    Discovers servers, authenticates, sends allowed listening ports, and handles reconnections.
     """
-    console.print("[bold green][WS_CLIENT][/bold green] Starting main client loop with server discovery...")
+    ch.ws_info("WS_CLIENT", "Starting main client loop with server discovery")
 
     # Load client assignments and ensure the ports file exists
     wsc.load_client_assignments()
     wsc.ensure_ports_file()
     allowed_ports = pfr.load_ports("ports.txt")
-    console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Loaded {len(allowed_ports)} allowed ports")
+    
+    ch.ws_info("WS_CLIENT", f"Loaded {len(allowed_ports)} allowed ports")
 
     if not allowed_ports:
-        console.print("[bold red][WS_CLIENT][/bold red] No allowed ports found, cannot continue")
+        ch.ws_error("WS_CLIENT", "No allowed ports found, cannot continue")
         return
 
     # Get local IP and hostname for identification
     local_ip = wg_tools.get_local_ip()
     hostname = socket.gethostname()
-    console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Client info: {hostname} ({local_ip})")
+    
+    ch.ws_info("WS_CLIENT", f"Client info: {hostname} ({local_ip})")
 
     # Discover servers only once at startup
     conflict_resolution_servers, wireguard_servers = await id.discover_server_types()
     if not conflict_resolution_servers and not wireguard_servers:
-        console.print("[bold red][WS_CLIENT][/bold red] No servers available")
+        ch.ws_error("WS_CLIENT", "No servers available")
         return
 
     # Select the first available server (can be improved)
@@ -60,7 +61,7 @@ async def ws_client_main_loop():
         if isinstance(s, (list, tuple)) and len(s) >= 2:
             all_servers.append((s[0], s[1]))
     if not all_servers:
-        console.print("[bold red][WS_CLIENT][/bold red] No servers found for persistent connection")
+        ch.ws_error("WS_CLIENT", "No servers found for persistent connection")
         return
     server_uri, server_token = all_servers[0]
 
@@ -71,23 +72,23 @@ async def ws_client_main_loop():
 
     while True:
         try:
-            console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Connecting to server {server_uri} ...")
+            ch.ws_connection("WS_CLIENT", server_uri, "connecting")
             async with websockets.connect(
                 server_uri, 
                 ping_interval=ping_interval, 
-                ping_timeout=30,    # Increased from 10 to 30 seconds
-                close_timeout=15    # Added close timeout
+                ping_timeout=30,
+                close_timeout=15
             ) as websocket:
                 # Initial authentication
                 await websocket.send(json.dumps({"token": server_token}))
-                token_response = await asyncio.wait_for(websocket.recv(), timeout=10)  # Increased timeout
+                token_response = await asyncio.wait_for(websocket.recv(), timeout=10)
                 token_result = json.loads(token_response)
                 if token_result.get("status") != "ok":
-                    console.print(f"[bold red][WS_CLIENT][/bold red] Token rejected by server")
+                    ch.ws_error("WS_CLIENT", "Token rejected by server")
                     await asyncio.sleep(10)
                     continue
 
-                console.print(f"[bold green][WS_CLIENT][/bold green] Connected and authenticated with server")
+                ch.ws_connection("WS_CLIENT", server_uri, "connected")
 
                 while True:
                     # --- Port logic ---
@@ -97,20 +98,23 @@ async def ws_client_main_loop():
                     new_ports = current_port_set - sent_ports
 
                     if new_ports:
-                        console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Found {len(new_ports)} new ports - sending to server...")
+                        port_list = [{"port": port, "protocol": proto} for port, proto in new_ports]
+                        ch.ws_ports("WS_CLIENT", "Sending", port_list, "to server")
+                        
                         data = {
                             "token": server_token,
                             "ip": local_ip,
                             "hostname": hostname,
-                            "ports": [{"port": port, "protocol": proto} for port, proto in new_ports]
+                            "ports": port_list
                         }
                         await websocket.send(json.dumps(data))
                         sent_ports.update(new_ports)
                         for port, proto in new_ports:
                             port_last_seen[(port, proto)] = time.time()
-                        console.print(f"[bold green][WS_CLIENT][/bold green] Sent {len(new_ports)} new ports to server")
+                        
+                        ch.ws_success("WS_CLIENT", f"Sent {len(new_ports)} new ports to server")
                     else:
-                        # Send a logical ping (you can change the content if you want)
+                        # Send a logical ping
                         await websocket.send(json.dumps({"token": server_token, "ping": True}))
 
                     # Update last_seen timestamps
@@ -132,17 +136,17 @@ async def ws_client_main_loop():
                             "remove_ports": inactive_ports
                         }
                         await websocket.send(json.dumps(remove_data))
-                        console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Notified server about {len(inactive_ports)} inactive ports")
+                        ch.ws_warning("WS_CLIENT", f"Notified server about {len(inactive_ports)} inactive ports")
 
                     # Wait before next cycle
                     await asyncio.sleep(ping_interval)
 
         except (websockets.ConnectionClosed, ConnectionRefusedError) as e:
-            console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Connection lost: {e}. Reconnecting in 10 seconds...")  # Aumentado tiempo de reconexión
-            await asyncio.sleep(10)  # Aumentado de 5 a 10 segundos
+            ch.ws_warning("WS_CLIENT", f"Connection lost: {e}. Reconnecting in 10 seconds")
+            await asyncio.sleep(10)
         except Exception as e:
-            console.print(f"[bold red][WS_CLIENT][/bold red] Error in main loop: {e}")
-            await asyncio.sleep(10)  # Aumentado de 5 a 10 segundos
+            ch.ws_error("WS_CLIENT", f"Error in main loop: {e}")
+            await asyncio.sleep(10)
 
 
 # -----------------------------------------------------------------------------
@@ -175,7 +179,7 @@ async def notify_inactive_ports_to_all_servers(inactive_ports):
                 }
                 await websocket.send(json.dumps(remove_data))
 
-                console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Notified {uri} about {len(inactive_ports)} inactive ports")
+                ch.ws_warning(f"Notified {uri} about {len(inactive_ports)} inactive ports")
 
         except Exception as e:
-            console.print(f"[bold red][WS_CLIENT][/bold red] Failed to notify {uri} about inactive ports: {e}")
+            ch.ws_error(f"Failed to notify {uri} about inactive ports: {e}")

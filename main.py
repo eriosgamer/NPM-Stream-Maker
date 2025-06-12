@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from UI import menu  # Import menu UI module
 from Server.ws_server import start_ws_server
 from Client.ws_client_main_thread import ws_client_main_loop
-from Config import cfg  # Import configuration settings
+from Config import config as cfg
 
 from rich.console import Console
 

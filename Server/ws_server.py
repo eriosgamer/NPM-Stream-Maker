@@ -7,8 +7,10 @@ import sys
 import time
 import subprocess
 import websockets
-from rich.console import Console
 import datetime
+
+# Add the parent directory to sys.path to allow module imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Core import token_manager as tm
 from Config import config as cfg
@@ -16,8 +18,11 @@ from WebSockets import websocket_config as ws_cfg
 from Remote import extra_utils as ex_util
 from ports import ports_utils as pu
 from npm import npm_handler as npm
-
-console = Console()
+from UI.console_handler import (
+    console_handler, ws_info, ws_success, ws_warning, ws_error, 
+    ws_connection, ws_status, clear_console, MessageType,
+    start_live_console, stop_live_console
+)
 
 # --- File Overview ---
 # This file is the main entry point for the WebSocket server of the NPM Stream Maker project.
@@ -29,67 +34,71 @@ console = Console()
 async def main():
     """
     Main async function to initialize and run the WebSocket server.
-    Handles NPM checks, port availability, and starts the server and periodic tasks.
     """
-    console.print(f"[bold green][WS][/bold green] Starting WebSocket server initialization...")
-    console.print(f"[bold cyan][WS][/bold cyan] Server start time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    console.print(f"[bold cyan][WS][/bold cyan] Configured port: {cfg.WS_SERVER_PORT}")
+    # Iniciar consola en vivo al comenzar
+    start_live_console("WebSocket Server", "Initialization & Live Monitoring")
+    
+    ws_info("WS_SERVER", "Starting WebSocket server initialization...")
+    ws_info("WS_SERVER", f"Server start time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    ws_info("WS_SERVER", f"Configured port: {cfg.WS_SERVER_PORT}")
     
     if not cfg.WS_TOKEN:
-        console.print("[bold red][WS][/bold red] No WebSocket server token found in .env file")
-        console.print("[bold yellow][WS][/bold yellow] Please run Control_Panel.py to generate a server token")
+        ws_error("WS_SERVER", "No WebSocket server token found in .env file", 
+                suggestions=["Run Control_Panel.py to generate a server token"])
         return False
     
-    console.print(f"[bold cyan][WS][/bold cyan] Token loaded: {cfg.WS_TOKEN[:8]}...")
+    ws_info("WS_SERVER", f"Token loaded: {cfg.WS_TOKEN[:8]}...")
     
     # Check if we should skip NPM check (for debugging)
     skip_npm = os.environ.get("SKIP_NPM_CHECK", "").lower() == "true"
     
     if not skip_npm:
-        console.print("[bold cyan][WS][/bold cyan] Performing NPM status check...")
+        ws_info("WS_SERVER", "Performing NPM status check...")
         # Check and optionally start NPM with timeout
         try:
             npm_check_start = time.time()
             npm_ready = ex_util.check_and_start_npm()
             npm_check_duration = time.time() - npm_check_start
             
-            console.print(f"[bold cyan][WS][/bold cyan] NPM check completed in {npm_check_duration:.2f} seconds")
+            ws_info("WS_SERVER", f"NPM check completed in {npm_check_duration:.2f} seconds")
             
             if not npm_ready:
-                console.print("[bold red][WS][/bold red] NPM container is not accessible")
-                console.print("[bold yellow][WS][/bold yellow] Server will start anyway but streams may not work properly")
-                console.print("[bold white]  To fix NPM issues:[/bold white]")
-                console.print("[bold white]  1. cd npm && docker-compose up -d[/bold white]")
-                console.print("[bold white]  2. Or use the Control Panel to start NPM[/bold white]")
-                console.print("[bold white]  3. Make sure NPM is accessible at http://localhost:81[/bold white]")
-                console.print("[bold white]  4. Set SKIP_NPM_CHECK=true to skip this check[/bold white]")
-                # Don't exit - continue with server startup
+                ws_error("WS_SERVER", "NPM container is not accessible",
+                        suggestions=[
+                            "cd npm && docker-compose up -d",
+                            "Use the Control Panel to start NPM",
+                            "Make sure NPM is accessible at http://localhost:81",
+                            "Set SKIP_NPM_CHECK=true to skip this check"
+                        ])
+                ws_warning("WS_SERVER", "Server will start anyway but streams may not work properly")
         except Exception as e:
-            console.print(f"[bold red][WS][/bold red] Error during NPM check: {e}")
-            console.print("[bold yellow][WS][/bold yellow] Continuing with server startup anyway...")
+            ws_error("WS_SERVER", f"Error during NPM check: {e}")
+            ws_warning("WS_SERVER", "Continuing with server startup anyway...")
     else:
-        console.print("[bold yellow][WS][/bold yellow] Skipping NPM check (SKIP_NPM_CHECK=true)")
+        ws_warning("WS_SERVER", "Skipping NPM check (SKIP_NPM_CHECK=true)")
     
     # Check if port is available
-    console.print(f"[bold cyan][WS][/bold cyan] Checking if port {cfg.WS_SERVER_PORT} is available...")
+    ws_info("WS_SERVER", f"Checking if port {cfg.WS_SERVER_PORT} is available...")
     
     try:
         port_check_start = time.time()
         port_in_use = pu.is_port_in_use(cfg.WS_SERVER_PORT)
         port_check_duration = time.time() - port_check_start
         
-        console.print(f"[bold cyan][WS][/bold cyan] Port check completed in {port_check_duration:.2f} seconds")
+        ws_info("WS_SERVER", f"Port check completed in {port_check_duration:.2f} seconds")
         
         if port_in_use:
-            console.print(f"[bold yellow][WS][/bold yellow] Port {cfg.WS_SERVER_PORT} is already in use")
+            ws_warning("WS_SERVER", f"Port {cfg.WS_SERVER_PORT} is already in use")
             
             try:
                 processes = pu.get_process_using_port(cfg.WS_SERVER_PORT)
                 
                 if processes:
-                    console.print(f"[bold yellow][WS][/bold yellow] Process(es) using port {cfg.WS_SERVER_PORT}:")
+                    process_details = {}
                     for i, (pid, command) in enumerate(processes, 1):
-                        console.print(f"[bold white]  {i}. PID: {pid}, Command: {command}[/bold white]")
+                        process_details[f"Process {i}"] = f"PID: {pid}, Command: {command}"
+                    
+                    ws_warning("WS_SERVER", f"Process(es) using port {cfg.WS_SERVER_PORT}:", process_details)
                     
                     # Check if any of the processes are likely our own WebSocket server
                     our_processes = []
@@ -98,8 +107,8 @@ async def main():
                             our_processes.append((pid, command))
                     
                     if our_processes:
-                        console.print(f"[bold cyan][WS][/bold cyan] Found {len(our_processes)} likely WebSocket server process(es)")
-                        console.print("[bold yellow][WS][/bold yellow] Attempting to terminate existing WebSocket server processes...")
+                        ws_info("WS_SERVER", f"Found {len(our_processes)} likely WebSocket server process(es)")
+                        ws_warning("WS_SERVER", "Attempting to terminate existing WebSocket server processes...")
                         
                         terminated_count = 0
                         for pid, command in our_processes:
@@ -108,83 +117,87 @@ async def main():
                                     result = subprocess.run(["taskkill", "/F", "/PID", str(pid)], 
                                                          capture_output=True, text=True, timeout=10)
                                     if result.returncode == 0:
-                                        console.print(f"[bold green][WS][/bold green] Terminated process {pid}")
+                                        ws_success("WS_SERVER", f"Terminated process {pid}")
                                         terminated_count += 1
                                     else:
-                                        console.print(f"[bold red][WS][/bold red] Failed to terminate process {pid}: {result.stderr}")
+                                        ws_error("WS_SERVER", f"Failed to terminate process {pid}: {result.stderr}")
                                 else:
                                     os.kill(int(pid), 9)
-                                    console.print(f"[bold green][WS][/bold green] Terminated process {pid}")
+                                    ws_success("WS_SERVER", f"Terminated process {pid}")
                                     terminated_count += 1
                             except Exception as e:
-                                console.print(f"[bold red][WS][/bold red] Failed to terminate process {pid}: {e}")
+                                ws_error("WS_SERVER", f"Failed to terminate process {pid}: {e}")
                         
                         if terminated_count > 0:
-                            console.print(f"[bold green][WS][/bold green] Successfully terminated {terminated_count} process(es)")
-                            console.print("[bold cyan][WS][/bold cyan] Waiting 5 seconds for ports to be released...")
+                            ws_success("WS_SERVER", f"Successfully terminated {terminated_count} process(es)")
+                            ws_info("WS_SERVER", "Waiting 5 seconds for ports to be released...")
                             time.sleep(5)
                             
                             # Check again if port is now available
                             if not pu.is_port_in_use(cfg.WS_SERVER_PORT):
-                                console.print(f"[bold green][WS][/bold green] Port {cfg.WS_SERVER_PORT} is now available")
+                                ws_success("WS_SERVER", f"Port {cfg.WS_SERVER_PORT} is now available")
                             else:
-                                console.print(f"[bold red][WS][/bold red] Port {cfg.WS_SERVER_PORT} is still in use after termination attempts")
-                                console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
+                                ws_error("WS_SERVER", f"Port {cfg.WS_SERVER_PORT} is still in use after termination attempts")
+                                ws_warning("WS_SERVER", "Will attempt to start server anyway...")
                         else:
-                            console.print("[bold red][WS][/bold red] Failed to terminate any existing processes")
+                            ws_error("WS_SERVER", "Failed to terminate any existing processes")
                     else:
-                        console.print(f"[bold yellow][WS][/bold yellow] Non-WebSocket processes are using port {cfg.WS_SERVER_PORT}")
-                        console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
+                        ws_warning("WS_SERVER", f"Non-WebSocket processes are using port {cfg.WS_SERVER_PORT}")
+                        ws_warning("WS_SERVER", "Will attempt to start server anyway...")
                 else:
-                    console.print(f"[bold yellow][WS][/bold yellow] Could not identify the process using port {cfg.WS_SERVER_PORT}")
-                    console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
+                    ws_warning("WS_SERVER", f"Could not identify the process using port {cfg.WS_SERVER_PORT}")
+                    ws_warning("WS_SERVER", "Will attempt to start server anyway...")
             except Exception as e:
-                console.print(f"[bold red][WS][/bold red] Error checking port usage: {e}")
-                console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
+                ws_error("WS_SERVER", f"Error checking port usage: {e}")
+                ws_warning("WS_SERVER", "Will attempt to start server anyway...")
         else:
-            console.print(f"[bold green][WS][/bold green] Port {cfg.WS_SERVER_PORT} is available")
+            ws_success("WS_SERVER", f"Port {cfg.WS_SERVER_PORT} is available")
     except Exception as e:
-        console.print(f"[bold red][WS][/bold red] Error checking port availability: {e}")
-        console.print("[bold yellow][WS][/bold yellow] Will attempt to start server anyway...")
+        ws_error("WS_SERVER", f"Error checking port availability: {e}")
+        ws_warning("WS_SERVER", "Will attempt to start server anyway...")
     
     try:
-        console.print("[bold cyan][WS][/bold cyan] Initializing WebSocket server...")
+        ws_info("WS_SERVER", "Initializing WebSocket server...")
         
         # Start the WebSocket server with compatible settings
         server = await websockets.serve(
             ex_util.handler,
             "0.0.0.0",
             cfg.WS_SERVER_PORT,
-            ping_interval=60,  # Aumentado de 20 a 60 segundos
-            ping_timeout=30,   # Aumentado de 10 a 30 segundos
-            close_timeout=10,  # Aumentado de 5 a 10 segundos
-            max_size=2**20,    # 1MB max message size
-            max_queue=32,      # Max 32 messages in queue
-            compression=None   # Disable compression for better compatibility
+            ping_interval=60,
+            ping_timeout=30,
+            close_timeout=10,
+            max_size=2**20,
+            max_queue=32,
+            compression=None
         )
         
-        console.print("[bold green][WS][/bold green] WebSocket server started successfully!")
-        console.print(f"[bold cyan][WS][/bold cyan] Server accessible via:")
+        ws_success("WS_SERVER", "WebSocket server started successfully!")
     
         # Try to get local IP for additional connection info
         try:
             hostname = socket.gethostname()
             local_ip = socket.gethostbyname(hostname)
-            console.print(f"[bold white]  - ws://{local_ip}:{cfg.WS_SERVER_PORT}[/bold white]")
-            console.print(f"[bold white]  - ws://localhost:{cfg.WS_SERVER_PORT}[/bold white]")
-            console.print(f"[bold white]  - ws://127.0.0.1:{cfg.WS_SERVER_PORT}[/bold white]")
+            connection_info = {
+                "Local IP": f"ws://{local_ip}:{cfg.WS_SERVER_PORT}",
+                "Localhost": f"ws://localhost:{cfg.WS_SERVER_PORT}",
+                "Loopback": f"ws://127.0.0.1:{cfg.WS_SERVER_PORT}"
+            }
         except:
-            console.print(f"[bold white]  - ws://localhost:{cfg.WS_SERVER_PORT}[/bold white]")
+            connection_info = {
+                "Localhost": f"ws://localhost:{cfg.WS_SERVER_PORT}"
+            }
         
-        console.print(f"[bold yellow][WS][/bold yellow] Press Ctrl+C to stop the server")
+        ws_info("WS_SERVER", "Server accessible via:", connection_info)
+        ws_info("WS_SERVER", "Press Ctrl+C to stop the server")
         
         # Start periodic cleanup task
-        console.print("[bold cyan][WS][/bold cyan] Starting periodic cleanup task...")
+        ws_info("WS_SERVER", "Starting periodic cleanup task...")
         cleanup_task = asyncio.create_task(ex_util.periodic_cleanup())
-        console.print("[bold green][WS][/bold green] Periodic cleanup task started")
+        ws_success("WS_SERVER", "Periodic cleanup task started")
         
         # Keep the server running indefinitely
-        console.print("[bold green][WS][/bold green] Server is now running and waiting for connections...")
+        ws_success("WS_SERVER", "Server is now running and waiting for connections...")
         
         try:
             # Create a task that will run forever
@@ -194,40 +207,55 @@ async def main():
             async def heartbeat():
                 """
                 Periodic heartbeat task that prints the current status of connected clients.
-                Shows formatted last_seen times and WebSocket status for each client.
                 """
                 while True:
                     await asyncio.sleep(60)  # Heartbeat every minute
                     current_time = time.strftime('%H:%M:%S')
-                    # Show only relevant info for each client, with formatted times
-                    clients_info = {}
+                    
+                    # Preparar datos de estado para el dashboard
+                    clients_status = {}
                     for k, v in cfg.connected_clients.items():
                         ws = v.get("ws")
-                        ws_status = None
+                        ws_status_val = None
                         try:
                             if ws is None:
-                                ws_status = "None"
+                                ws_status_val = "None"
                             elif hasattr(ws, "closed"):
-                                ws_status = "closed" if ws.closed else "open"
+                                ws_status_val = "closed" if ws.closed else "open"
                             else:
-                                ws_status = "unknown"
+                                ws_status_val = "unknown"
                         except Exception:
-                            ws_status = "unknown"
+                            ws_status_val = "unknown"
+                        
                         # Format last_seen
                         last_seen_ts = v.get("last_seen")
                         if last_seen_ts:
-                            last_seen_fmt = datetime.datetime.fromtimestamp(last_seen_ts).strftime("%d/%m/%Y %I:%M:%S %p")
+                            last_seen_fmt = datetime.datetime.fromtimestamp(last_seen_ts).strftime("%d/%m/%Y %H:%M:%S")
                         else:
                             last_seen_fmt = "N/A"
-                        clients_info[k] = {
+                        
+                        clients_status[k] = {
                             "ip": v.get("ip"),
                             "hostname": v.get("hostname"),
-                            "ws_status": ws_status,
-                            "ports": list(v.get("ports", [])),
+                            "ws_status": ws_status_val,
+                            "ports": len(v.get("ports", [])),
                             "last_seen": last_seen_fmt,
                         }
-                    console.print(f"[bold gray][WS][/bold gray] connected_clients summary: {clients_info}")
-                    console.print(f"[bold gray][WS][/bold gray] Server heartbeat: {current_time} - {len(cfg.connected_clients)} clients connected")
+                    
+                    # Usar el sistema de status
+                    status_data = {
+                        "current_time": current_time,
+                        "connected_clients": len(cfg.connected_clients),
+                        "active_connections": sum(1 for v in cfg.connected_clients.values() 
+                                                if not v.get("ws", {}).get("closed", True))
+                    }
+                    
+                    ws_status("WS_SERVER", status_data)
+                    
+                    # Mostrar detalles de clientes si hay alguno
+                    if clients_status:
+                        console_handler.print_message("WS_SERVER", "Connected clients summary", 
+                                                    MessageType.DEBUG, clients_status)
             
             heartbeat_task = asyncio.create_task(heartbeat())
             
@@ -246,105 +274,87 @@ async def main():
                     pass
                     
         except KeyboardInterrupt:
-            console.print("[bold yellow][WS][/bold yellow] Received shutdown signal...")
+            ws_warning("WS_SERVER", "Received shutdown signal...")
         except Exception as e:
-            console.print(f"[bold red][WS][/bold red] Server error: {e}")
+            ws_error("WS_SERVER", f"Server error: {e}")
         finally:
-            console.print("[bold cyan][WS][/bold cyan] Cleaning up server resources...")
+            ws_info("WS_SERVER", "Cleaning up server resources...")
             cleanup_task.cancel()
             try:
                 await cleanup_task
             except asyncio.CancelledError:
                 pass
             
-            console.print("[bold yellow][WS][/bold yellow] Server shutdown completed")
+            ws_warning("WS_SERVER", "Server shutdown completed")
+            
+            # Detener consola en vivo antes de salir
+            stop_live_console()
         
         return True
         
     except OSError as e:
         if "Address already in use" in str(e):
-            console.print(f"[bold red][WS][/bold red] Port {cfg.WS_SERVER_PORT} is still in use after cleanup attempts")
-            console.print(f"[bold yellow][WS][/bold yellow] This may indicate:")
-            console.print(f"[bold white]  - Another WebSocket server is running on port {cfg.WS_SERVER_PORT}[/bold white]")
-            console.print(f"[bold white]  - A process is still releasing the port[/bold white]")
-            console.print(f"[bold white]  - System networking issue[/bold white]")
-            console.print(f"[bold cyan][WS][/bold cyan] Try waiting a few moments and running the server again")
-            console.print(f"[bold cyan][WS][/bold cyan] Or use a different port: --ws-server-port <PORT>[/bold cyan]")
+            ws_error("WS_SERVER", f"Port {cfg.WS_SERVER_PORT} is still in use after cleanup attempts",
+                    suggestions=[
+                        f"Wait a few moments and run the server again",
+                        f"Use a different port: --ws-server-port <PORT>",
+                        f"Use 'netstat -tulpn | grep {cfg.WS_SERVER_PORT}' to check what's using the port",
+                        f"Kill the process manually: sudo kill -9 <PID>",
+                        f"Set environment variable: WS_SERVER_PORT=<PORT>",
+                        f"Restart your system if necessary"
+                    ])
         else:
-            console.print(f"[bold red][WS][/bold red] Failed to bind to port {cfg.WS_SERVER_PORT}: {e}")
+            ws_error("WS_SERVER", f"Failed to bind to port {cfg.WS_SERVER_PORT}: {e}")
         
-        console.print(f"[bold yellow][WS][/bold yellow] You can try:")
-        console.print(f"[bold white]  - Use 'netstat -tulpn | grep {cfg.WS_SERVER_PORT}' to check what's using the port[/bold white]")
-        console.print(f"[bold white]  - Kill the process manually: sudo kill -9 <PID>[/bold white]")
-        console.print(f"[bold white]  - Use a different port: --ws-server-port <PORT>[/bold white]")
-        console.print(f"[bold white]  - Set environment variable: WS_SERVER_PORT=<PORT>[/bold white]")
-        console.print(f"[bold white]  - Wait for the process to finish[/bold white]")
-        console.print(f"[bold white]  - Restart your system if necessary[/bold white]")
         return False
     except Exception as e:
-        console.print(f"[bold red][WS][/bold red] Unexpected error starting WebSocket server: {e}")
-        console.print(f"[bold red][WS][/bold red] Error type: {type(e).__name__}")
+        ws_error("WS_SERVER", f"Unexpected error starting WebSocket server: {e}")
         
         # Print more detailed error information
         import traceback
-        console.print(f"[bold red][WS][/bold red] Traceback:")
-        for line in traceback.format_exc().split('\n'):
-            if line.strip():
-                console.print(f"[bold red]  {line}[/bold red]")
+        error_details = {"error_type": type(e).__name__, "traceback": traceback.format_exc()}
+        ws_error("WS_SERVER", "Detailed error information", error_details)
         
         return False
 
 def start_ws_server():
     """
-    Starts the WebSocket server.
-    Generates the server token if it does not exist.
-    Loads saved state, configures logging, and runs the main async loop.
+    Starts the WebSocket server with unified console handling.
     """
-    console.rule("[bold blue]Start WebSocket Server")
-
+    # No limpiar consola aquí, se manejará en live mode
+    
     if os.environ.get("RUN_FROM_PANEL") != "1":
-        console.print(
-            "[bold red][WS][/bold red] This script must be run from Control_Panel.py")
-        console.print(
-            "[bold yellow][WS][/bold yellow] Use option 5 in the Control Panel to start the WebSocket server")
+        ws_error("WS_SERVER", "This script must be run from Control_Panel.py",
+                suggestions=["Use option 5 in the Control Panel to start the WebSocket server"])
         sys.exit(1)
 
     # Check token availability
     if not cfg.WS_TOKEN:
-        console.print(
-            "[bold red][WS][/bold red] No WebSocket server token found in .env file")
+        ws_error("WS_SERVER", "No WebSocket server token found in .env file")
         # Generate a new token
-        cfg.WS_TOKEN = tm.get_or_create_token(console, "server")
+        cfg.WS_TOKEN = tm.get_or_create_token(console_handler.console, "server")
 
-    console.print(
-        f"[bold cyan][WS][/bold cyan] WebSocket server token: {cfg.WS_TOKEN}")
+    ws_info("WS_SERVER", f"WebSocket server token: {cfg.WS_TOKEN}")
 
     # Load saved state
-    console.print("[bold cyan][WS][/bold cyan] Loading saved state...")
+    ws_info("WS_SERVER", "Loading saved state...")
     try:
         ws_cfg.load_state()
-        console.print(
-            "[bold green][WS][/bold green] State loaded successfully")
+        ws_success("WS_SERVER", "State loaded successfully")
     except Exception as e:
-        console.print(
-            f"[bold yellow][WS][/bold yellow] Error loading state: {e}")
-        console.print(
-            "[bold cyan][WS][/bold cyan] Starting with clean state...")
+        ws_warning("WS_SERVER", f"Error loading state: {e}")
+        ws_info("WS_SERVER", "Starting with clean state...")
 
     # Setup logging to reduce handshake error noise
-    console.print("[bold cyan][WS][/bold cyan] Configuring logging...")
-    logging.getLogger('websockets').setLevel(
-        logging.WARNING)  # Reduce websockets logging
-    logging.getLogger('websockets.server').setLevel(
-        logging.ERROR)  # Even more strict for server
-    logging.getLogger('websockets.protocol').setLevel(
-        logging.ERROR)  # Hide protocol errors
+    ws_info("WS_SERVER", "Configuring logging...")
+    logging.getLogger('websockets').setLevel(logging.WARNING)
+    logging.getLogger('websockets.server').setLevel(logging.ERROR)
+    logging.getLogger('websockets.protocol').setLevel(logging.ERROR)
 
     # Filter out common harmless errors
     class HandshakeErrorFilter(logging.Filter):
         def filter(self, record):
             message = record.getMessage()
-            # Filter out common harmless connection errors
             if any(phrase in message.lower() for phrase in [
                 "opening handshake failed",
                 "connection closed while reading http request line",
@@ -353,27 +363,24 @@ def start_ws_server():
             ]):
                 return False
             return True
+    
     # Apply filter to websockets loggers
     for logger_name in ['websockets', 'websockets.server', 'websockets.protocol']:
         logger = logging.getLogger(logger_name)
         logger.addFilter(HandshakeErrorFilter())
 
-    console.print(
-        "[bold green][WS][/bold green] Logging configured - handshake errors filtered")
+    ws_success("WS_SERVER", "Logging configured - handshake errors filtered")
 
     # Run the server
     try:
-        console.print(
-            "[bold green][WS][/bold green] Starting WebSocket server main loop...")
+        ws_success("WS_SERVER", "Starting WebSocket server main loop...")
 
         # Set up signal handling for graceful shutdown
         import signal
 
         def signal_handler(signum, frame):
-            console.print(
-                f"[bold yellow][WS][/bold yellow] Received signal {signum}")
-            console.print(
-                "[bold yellow][WS][/bold yellow] Initiating graceful shutdown...")
+            ws_warning("WS_SERVER", f"Received signal {signum}")
+            ws_warning("WS_SERVER", "Initiating graceful shutdown...")
             # The KeyboardInterrupt will be caught by the asyncio.run() try/catch
             raise KeyboardInterrupt()
 
@@ -386,29 +393,25 @@ def start_ws_server():
         success = asyncio.run(main())
 
         if success:
-            console.print(
-                "[bold green][WS][/bold green] WebSocket server completed successfully")
+            ws_success("WS_SERVER", "WebSocket server completed successfully")
             sys.exit(0)
         else:
-            console.print(
-                "[bold red][WS][/bold red] WebSocket server failed to start")
+            ws_error("WS_SERVER", "WebSocket server failed to start")
             sys.exit(1)
 
     except KeyboardInterrupt:
-        console.print(
-            "[bold yellow][WS][/bold yellow] Server shutdown requested by user")
+        ws_warning("WS_SERVER", "Server shutdown requested by user")
+        stop_live_console()  # Asegurar que se detenga la consola en vivo
         npm.stop_npm()
         sys.exit(0)
     except Exception as e:
-        console.print(
-            f"[bold red][WS][/bold red] Fatal error in server startup: {e}")
+        ws_error("WS_SERVER", f"Fatal error in server startup: {e}")
+        stop_live_console()  # Asegurar que se detenga la consola en vivo
 
         # Print detailed error information
         import traceback
-        console.print(f"[bold red][WS][/bold red] Full traceback:")
-        for line in traceback.format_exc().split('\n'):
-            if line.strip():
-                console.print(f"[bold red]  {line}[/bold red]")
+        error_details = {"traceback": traceback.format_exc()}
+        ws_error("WS_SERVER", "Full traceback", error_details)
 
         sys.exit(1)
     time.sleep(3)  # Give time for logging to take effect
