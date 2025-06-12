@@ -214,40 +214,85 @@ async def main():
                     
                     # Preparar datos de estado para el dashboard
                     clients_status = {}
+                    active_connections = 0
+                    
                     for k, v in cfg.connected_clients.items():
-                        ws = v.get("ws")
-                        ws_status_val = None
                         try:
-                            if ws is None:
-                                ws_status_val = "None"
-                            elif hasattr(ws, "closed"):
-                                ws_status_val = "closed" if ws.closed else "open"
+                            # Manejar tanto diccionarios como objetos ServerConnection
+                            if hasattr(v, '__dict__'):
+                                # Es un objeto ServerConnection
+                                ws = getattr(v, 'ws', None) or getattr(v, 'websocket', None)
+                                ip = getattr(v, 'ip', 'Unknown')
+                                hostname = getattr(v, 'hostname', 'Unknown')
+                                ports = getattr(v, 'ports', set())
+                                last_seen = getattr(v, 'last_seen', None)
                             else:
-                                ws_status_val = "unknown"
-                        except Exception:
+                                # Es un diccionario
+                                ws = v.get("ws")
+                                ip = v.get("ip", 'Unknown')
+                                hostname = v.get("hostname", 'Unknown')
+                                ports = v.get("ports", set())
+                                last_seen = v.get("last_seen")
+                            
+                            # Determinar estado de WebSocket
                             ws_status_val = "unknown"
-                        
-                        # Format last_seen
-                        last_seen_ts = v.get("last_seen")
-                        if last_seen_ts:
-                            last_seen_fmt = datetime.datetime.fromtimestamp(last_seen_ts).strftime("%d/%m/%Y %H:%M:%S")
-                        else:
-                            last_seen_fmt = "N/A"
-                        
-                        clients_status[k] = {
-                            "ip": v.get("ip"),
-                            "hostname": v.get("hostname"),
-                            "ws_status": ws_status_val,
-                            "ports": len(v.get("ports", [])),
-                            "last_seen": last_seen_fmt,
-                        }
+                            try:
+                                if ws is None:
+                                    ws_status_val = "None"
+                                elif hasattr(ws, "closed"):
+                                    if ws.closed:
+                                        ws_status_val = "closed"
+                                    else:
+                                        ws_status_val = "open"
+                                        active_connections += 1
+                                else:
+                                    ws_status_val = "unknown"
+                            except Exception:
+                                ws_status_val = "error"
+                            
+                            # Format last_seen
+                            if last_seen:
+                                try:
+                                    if isinstance(last_seen, (int, float)):
+                                        last_seen_fmt = datetime.datetime.fromtimestamp(last_seen).strftime("%d/%m/%Y %H:%M:%S")
+                                    else:
+                                        last_seen_fmt = str(last_seen)
+                                except:
+                                    last_seen_fmt = "Invalid timestamp"
+                            else:
+                                last_seen_fmt = "N/A"
+                            
+                            # Convertir ports a lista si es necesario
+                            if isinstance(ports, set):
+                                ports_count = len(ports)
+                            elif isinstance(ports, (list, tuple)):
+                                ports_count = len(ports)
+                            else:
+                                ports_count = 0
+                            
+                            clients_status[k] = {
+                                "ip": str(ip),
+                                "hostname": str(hostname),
+                                "ws_status": ws_status_val,
+                                "ports": ports_count,
+                                "last_seen": last_seen_fmt,
+                            }
+                            
+                        except Exception as e:
+                            # Si hay error procesando un cliente, registrarlo pero continuar
+                            clients_status[k] = {
+                                "ip": "Error",
+                                "hostname": "Error",
+                                "ws_status": "error",
+                                "ports": 0,
+                                "last_seen": f"Error: {str(e)[:50]}",
+                            }
                     
                     # Usar el sistema de status
                     status_data = {
                         "current_time": current_time,
                         "connected_clients": len(cfg.connected_clients),
-                        "active_connections": sum(1 for v in cfg.connected_clients.values() 
-                                                if not v.get("ws", {}).get("closed", True))
+                        "active_connections": active_connections
                     }
                     
                     ws_status("WS_SERVER", status_data)
@@ -256,7 +301,7 @@ async def main():
                     if clients_status:
                         console_handler.print_message("WS_SERVER", "Connected clients summary", 
                                                     MessageType.DEBUG, clients_status)
-            
+
             heartbeat_task = asyncio.create_task(heartbeat())
             
             # Wait for either the server to close or manual interruption
