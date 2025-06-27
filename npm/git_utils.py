@@ -35,14 +35,15 @@ def repo_clone(repo_url, destino, console):
         )
         percent = 0
         # Read lines from stderr to parse git progress output
-        for line in process.stderr:
-            if "Receiving objects" in line:
-                # Extract percentage from line using regular expressions
-                match = re.search(r'(\d+)%', line)
-                if match:
-                    percent = int(match.group(1))
-                    # Update progress bar with current percentage
-                    progress.update(task, completed=percent)
+        if process.stderr is not None:
+            for line in process.stderr:
+                if "Receiving objects" in line:
+                    # Extract percentage from line using regular expressions
+                    match = re.search(r'(\d+)%', line)
+                    if match:
+                        percent = int(match.group(1))
+                        # Update progress bar with current percentage
+                        progress.update(task, completed=percent)
         process.wait()
         # Make sure progress bar reaches 100% at the end
         progress.update(task, completed=100)

@@ -21,7 +21,6 @@ from npm import npm_handler as npm
 from UI.console_handler import (
     console_handler, ws_info, ws_success, ws_warning, ws_error, 
     ws_connection, ws_status, clear_console, MessageType,
-    start_live_console, stop_live_console
 )
 
 # --- File Overview ---
@@ -35,9 +34,6 @@ async def main():
     """
     Main async function to initialize and run the WebSocket server.
     """
-    # Iniciar consola en vivo al comenzar
-    start_live_console("WebSocket Server", "Initialization & Live Monitoring")
-    
     ws_info("WS_SERVER", "Starting WebSocket server initialization...")
     ws_info("WS_SERVER", f"Server start time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     ws_info("WS_SERVER", f"Configured port: {cfg.WS_SERVER_PORT}")
@@ -54,7 +50,7 @@ async def main():
     
     if not skip_npm:
         ws_info("WS_SERVER", "Performing NPM status check...")
-        # Check and optionally start NPM with timeout
+        # Solo verificar/arrancar NPM una vez al inicio, nunca en tareas periódicas
         try:
             npm_check_start = time.time()
             npm_ready = ex_util.check_and_start_npm()
@@ -193,12 +189,12 @@ async def main():
         
         # Start periodic cleanup task
         ws_info("WS_SERVER", "Starting periodic cleanup task...")
+        # Asegúrate que ex_util.periodic_cleanup() NO reinicie NPM ni los contenedores
         cleanup_task = asyncio.create_task(ex_util.periodic_cleanup())
         ws_success("WS_SERVER", "Periodic cleanup task started")
         
         # Keep the server running indefinitely
         ws_success("WS_SERVER", "Server is now running and waiting for connections...")
-        
         try:
             # Create a task that will run forever
             server_task = asyncio.create_task(server.wait_closed())
@@ -299,8 +295,9 @@ async def main():
                     
                     # Mostrar detalles de clientes si hay alguno
                     if clients_status:
+                        # Imprime como mensajes simples, no como paneles ni layouts
                         console_handler.print_message("WS_SERVER", "Connected clients summary", 
-                                                    MessageType.DEBUG, clients_status)
+                                                     MessageType.DEBUG, clients_status)
 
             heartbeat_task = asyncio.create_task(heartbeat())
             
@@ -317,7 +314,6 @@ async def main():
                     await task
                 except asyncio.CancelledError:
                     pass
-                    
         except KeyboardInterrupt:
             ws_warning("WS_SERVER", "Received shutdown signal...")
         except Exception as e:
@@ -329,12 +325,7 @@ async def main():
                 await cleanup_task
             except asyncio.CancelledError:
                 pass
-            
             ws_warning("WS_SERVER", "Server shutdown completed")
-            
-            # Detener consola en vivo antes de salir
-            stop_live_console()
-        
         return True
         
     except OSError as e:
@@ -366,7 +357,7 @@ def start_ws_server():
     """
     Starts the WebSocket server with unified console handling.
     """
-    # No limpiar consola aquí, se manejará en live mode
+    # Quitar: No limpiar consola aquí, se manejará en live mode
     
     if os.environ.get("RUN_FROM_PANEL") != "1":
         ws_error("WS_SERVER", "This script must be run from Control_Panel.py",
@@ -439,26 +430,22 @@ def start_ws_server():
 
         if success:
             ws_success("WS_SERVER", "WebSocket server completed successfully")
-            sys.exit(0)
+            return  # Volver al menú principal
         else:
             ws_error("WS_SERVER", "WebSocket server failed to start")
-            sys.exit(1)
-
+            return  # Volver al menú principal
     except KeyboardInterrupt:
         ws_warning("WS_SERVER", "Server shutdown requested by user")
-        stop_live_console()  # Asegurar que se detenga la consola en vivo
         npm.stop_npm()
-        sys.exit(0)
+        return  # Volver al menú principal
     except Exception as e:
         ws_error("WS_SERVER", f"Fatal error in server startup: {e}")
-        stop_live_console()  # Asegurar que se detenga la consola en vivo
-
         # Print detailed error information
         import traceback
         error_details = {"traceback": traceback.format_exc()}
         ws_error("WS_SERVER", "Full traceback", error_details)
 
-        sys.exit(1)
+        return  # Volver al menú principal
     time.sleep(3)  # Give time for logging to take effect
 
 def get_client_id(ip, hostname):
@@ -466,8 +453,3 @@ def get_client_id(ip, hostname):
     Returns a unique client ID string based on IP and hostname.
     """
     return f"{ip}|{hostname}"
-
-# --- Module summary ---
-# This file is the main entry point for the WebSocket server.
-# It handles initialization, port and NPM checks, client connection management,
-# periodic cleanup, and provides detailed logging and status reporting.

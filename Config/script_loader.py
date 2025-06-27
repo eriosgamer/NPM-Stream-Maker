@@ -1,5 +1,3 @@
-from Config import config as cfg
-from WebSockets import websocket_config as WebSocketConfig
 from Core import token_manager as tm
 import os
 from rich.console import Console
@@ -8,7 +6,9 @@ import sys
 
 # Add the parent directory to sys.path to allow imports from sibling modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+from Config import config as cfg
+from Config import ws_config_handler as websocket_config
+from WebSockets import websocket_config as ws_config_handler
 console = Console()
 
 
@@ -27,7 +27,7 @@ def run_script(script):
         tm.get_or_create_token(console, "server")
     elif script == "ws_client.py":
         # Get URIs and tokens from .env using the new class
-        uris, tokens, _ = WebSocketConfig.get_ws_config()
+        uris, tokens, _ = websocket_config.get_ws_config()
         if not uris or not tokens:
             console.print(
                 "[red]No WebSocket URIs or tokens found in .env.[/red]")
@@ -38,7 +38,7 @@ def run_script(script):
             if not uri or not token:
                 continue
             console.print(f"[cyan]Testing connection to {uri}...[/cyan]")
-            if WebSocketConfig.test_ws_connection(uri, token):
+            if ws_config_handler.test_ws_connection(uri, token):
                 console.print(
                     f"[green]Connection to {uri} successful.[/green]")
                 # Do NOT save URI - just set environment variables for this session only
@@ -58,7 +58,7 @@ def run_script(script):
     env = os.environ.copy()
     if script == "ws_client.py" and os.path.exists(cfg.ENV_FILE):
         # Don't override URIs, just pass them as environment variables
-        uris, tokens, _ = WebSocketConfig.get_ws_config()
+        uris, tokens, _ = websocket_config.get_ws_config()
         if uris:
             env["WS_URIS"] = ",".join(uris)
         if tokens:

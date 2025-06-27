@@ -1,5 +1,7 @@
 import asyncio
 import websockets
+from websockets.exceptions import ConnectionClosedError, InvalidHandshake
+from websockets.datastructures import Headers
 import json
 from rich.prompt import Prompt
 from rich.console import Console
@@ -13,6 +15,12 @@ from Config import config as cfg
 
 console = Console()
 
+# Global state dictionaries for assigned ports, connected clients, and port conflict resolutions
+assigned_ports = {}
+connected_clients = {}
+port_conflict_resolutions = {}
+uris, _, _ = WebSocketConfig.get_ws_config()
+uri = uris[0] if uris else None
 # This file provides utility functions for managing WebSocket server configuration,
 # testing connections, and persisting state related to assigned ports, connected clients,
 # and port conflict resolutions.
@@ -22,9 +30,8 @@ def get_ws_uri(console):
     Gets the WebSocket server URI from the .env or prompts the user if not configured.
     Saves the URI if it is new.
     """
+    global uri
     # Try to read the URI from .env
-    uris, _, _ = WebSocketConfig.get_ws_config()
-    uri = uris[0] if uris else None
 
     if not uri:
         uri = Prompt.ask(
@@ -82,16 +89,11 @@ def test_ws_connection(uri, token):
                 else:
                     # Any other response might indicate server is working
                     return True
-
-        except websockets.exceptions.InvalidStatusCode as e:
-            if e.status_code == 426:
-                console.print(
-                    f"[bold red]WebSocket upgrade failed (426) for {uri}[/bold red]")
-                console.print(
-                    f"[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]")
-            else:
-                console.print(
-                    f"[bold red]HTTP error {e.status_code} for {uri}[/bold red]")
+        except InvalidHandshake as e:
+            console.print(
+                f"[bold red]WebSocket handshake failed for {uri}: {e}[/bold red]")
+            console.print(
+                f"[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]")
             return False
         except asyncio.TimeoutError:
             console.print(
@@ -153,3 +155,14 @@ def load_state():
             console.print(f"[bold green][WS][/bold green] Loaded {len(port_conflict_resolutions)} port conflict resolutions from disk")
         except Exception as e:
             console.print(f"[bold yellow][WS][/bold yellow] Error loading port conflict resolutions: {e}")
+
+
+def is_first_server():
+    """
+    Checks if the current server is the first one in the list of WebSocket URIs.
+    Returns True if it is the first server, False otherwise.
+    """
+    uris, _, _ = WebSocketConfig.get_ws_config()
+    if not uris:
+        return False
+    return uris[0] == get_ws_uri(console)

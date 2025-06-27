@@ -112,8 +112,14 @@ def reload_npm():
     Reloads Nginx inside the Nginx Proxy Manager container using nginx -s reload.
     Only runs if Docker is available.
     """
-    docker_available = os.environ.get("DOCKER_AVAILABLE", "0") == "1"
+    # Asegura que la variable DOCKER_AVAILABLE esté correctamente definida
+    try:
+        from npm.docker_utils import check_docker_available
+        check_docker_available()
+    except Exception as e:
+        console.print(f"[bold yellow][NPM_CLEANER][/bold yellow] Error checking Docker availability: {e}")
     
+    docker_available = os.environ.get("DOCKER_AVAILABLE", "0") == "1"
     if not docker_available:
         console.print("[bold yellow][NPM_CLEANER][/bold yellow] Docker not available - skipping NPM reload")
         return

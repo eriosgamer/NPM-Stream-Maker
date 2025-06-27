@@ -12,6 +12,19 @@ from Config import config as cfg
 console = Console()
 
 
+def check_npm_install():
+    """
+    Checks if Nginx Proxy Manager is installed and running.
+    If not installed, attempts to create the docker-compose.yml file.
+    Displays the current status of the service.
+    """
+    # Check if docker-compose is installed
+    if not shutil.which("docker-compose"):
+        console.print(
+            "[red]docker-compose is not installed. Nginx Proxy Manager cannot be verified.[/red]")
+        return False
+    return True
+
 def check_npm():
     """
     Checks if Nginx Proxy Manager is installed and running.

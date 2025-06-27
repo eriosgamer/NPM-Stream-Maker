@@ -29,6 +29,7 @@ from Wireguard import wireguard_tools as wg_tools
 from Core import message_handler as msg_handler
 from Config import config as cfg
 from WebSockets import websocket_config as ws_config
+from Client import ws_client_main_thread as wsc
 
 # Set to keep track of ports already sent to the server
 sent_ports = set()
@@ -143,6 +144,8 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
     console.print(
         f"[bold cyan][WS_CLIENT][/bold cyan] Starting client task for {ws_config.uri} (first server: {ws_config.is_first_server})")
 
+    max_connection_errors = 5  # Set a default or configurable value
+
     while True:
         try:
             console.print(
@@ -187,7 +190,7 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
 
                     # Keep connection alive but don't actively scan ports
                     while True:
-                        await asyncio.sleep(ws_config.ping_interval)
+                        await asyncio.sleep(getattr(websocket, "ping_interval", 60))  # Wait for ping interval
                         # Handle any incoming messages (like port assignments)
                         try:
                             # Non-blocking check for messages
@@ -207,7 +210,7 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
                         f"[bold cyan][WS_CLIENT][/bold cyan] Checking listening ports for first server {ws_config.uri}...")
                     current_ports = port_scanner.get_listening_ports_with_proto()
                     allowed_and_listening = [
-                        (port, proto) for port, proto in current_ports if port in cfg.allowed_ports]
+                        (port, proto) for port, proto in current_ports if port in wsc.allowed_ports]
 
                     console.print(
                         f"[bold cyan][WS_CLIENT][/bold cyan] Detected ports: {len(current_ports)}")
@@ -241,7 +244,7 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
                     # Check for inactive ports
                     inactive_ports = []
                     for (port, proto), last_seen in list(port_last_seen.items()):
-                        if current_time - last_seen > cfg.inactive_timeout:
+                        if current_time - last_seen > wsc.inactive_timeout:
                             inactive_ports.append(
                                 {"puerto": port, "protocolo": proto})
                             del port_last_seen[(port, proto)]
@@ -258,8 +261,8 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
 
                     # Wait before next check
                     console.print(
-                        f"[bold cyan][WS_CLIENT][/bold cyan] Waiting {ws_config.ping_interval} seconds before next check...")
-                    await asyncio.sleep(ws_config.ping_interval)
+                        f"[bold cyan][WS_CLIENT][/bold cyan] Waiting {getattr(websocket, 'ping_interval', 60)} seconds before next check...")
+                    await asyncio.sleep(getattr(websocket, 'ping_interval', 60))
 
         except websockets.exceptions.ConnectionClosed as e:
             connection_errors += 1
@@ -269,9 +272,9 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
         except Exception as e:
             connection_errors += 1
             console.print(
-                f"[bold red][WS_CLIENT][/bold red] Error in main loop for {ws_config.uri} (error {connection_errors}): {e}")
+                f"[bold red][WS_CLIENT][/bold red] Error in connection to {ws_config.uri}: {e}")
 
-        if connection_errors >= ws_config.max_connection_errors:
+        if connection_errors >= max_connection_errors:
             console.print(
                 f"[bold red][WS_CLIENT][/bold red] Too many connection errors for {ws_config.uri}, stopping...")
             break

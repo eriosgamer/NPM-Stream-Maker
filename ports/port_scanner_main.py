@@ -115,9 +115,6 @@ def main():
     with open("ports.txt", "w") as f:
         f.write(opnsense_alt_list)
 
-    # Get game categories count from the function
-    steam_ports = sp.get_common_steam_ports()
-
     # Create a metadata file with generation info
     metadata = {
         "generated_on": time.time(),

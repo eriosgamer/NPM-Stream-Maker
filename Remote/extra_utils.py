@@ -55,7 +55,7 @@ async def handler(websocket, path=None):
                 msg_log = json.dumps(data_preview)
             except Exception:
                 msg_log = message
-            console.print(f"[bold cyan][WS][/bold cyan] Message received from {peer}: {msg_log}")
+            console.print(f"[bold cyan][WS][/bold cyan] Message received from {peer}: {msg_log} on {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
             try:
                 data = json.loads(message)
@@ -255,7 +255,11 @@ async def handler(websocket, path=None):
                             try:
                                 sc.add_streams_sqlite_with_ip_extended(new_entries_to_add)
                                 scdb.sync_streams_conf_with_sqlite()
+
+                                # --- CAMBIO: Agregar log antes de recargar NPM ---
+                                console.print(f"[bold yellow][WS][/bold yellow] Reloading NPM due to stream change...")
                                 npm.reload_npm()
+                                # ----------------------------
 
                                 console.print(f"[bold green][WS][/bold green] Successfully processed {len(new_entries_to_add)} WG streams")
 
@@ -300,6 +304,12 @@ async def handler(websocket, path=None):
                         conn.commit()
                         if removed:
                             console.print(f"[bold yellow][WS][/bold yellow] Removed inactive ports by client request: {removed}")
+                            # --- NUEVO: Sincronizar archivos de configuración y recargar NGINX/NPM ---
+                            from Streams import stream_creation_db as scdb
+                            from npm.npm_handler import reload_npm
+                            scdb.sync_streams_conf_with_sqlite()
+                            console.print(f"[bold yellow][WS][/bold yellow] Reloading NPM due to port removal...")
+                            reload_npm()
                         await websocket.send(json.dumps({"status": "ok", "msg": f"Removed inactive ports: {removed}"}))
                     finally:
                         conn.close()
@@ -399,7 +409,11 @@ async def handle_remote_stream_create(data, websocket):
 
             # Sync configuration and reload NPM
             scdb.sync_streams_conf_with_sqlite()
+
+            # --- CAMBIO: Agregar log antes de recargar NPM ---
+            console.print(f"[bold yellow][WS][/bold yellow] Reloading NPM due to stream change...")
             npm.reload_npm()
+            # ----------------------------
 
             await websocket.send(json.dumps({
                 "status": "ok",
@@ -489,7 +503,11 @@ async def handle_remote_stream_delete(data, websocket):
 
             # Sync configuration and reload NPM
             scdb.sync_streams_conf_with_sqlite()
+
+            # --- CAMBIO: Agregar log antes de recargar NPM ---
+            console.print(f"[bold yellow][WS][/bold yellow] Reloading NPM due to stream change...")
             npm.reload_npm()
+            # ----------------------------
 
             await websocket.send(json.dumps({
                 "status": "ok",

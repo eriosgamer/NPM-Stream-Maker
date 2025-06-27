@@ -173,3 +173,55 @@ def save_ws_port(ip, assigned_port):
             json.dump(data, f, indent=2)
     except Exception as e:
         console.print(f"[bold red][WS][/bold red] Error saving WS port: {e}")
+
+def load_ws_ports():
+    """
+    Loads the WebSocket ports from the configured WS_PORTS_FILE.
+    Returns a list of dictionaries with 'ip', 'port', and 'timestamp'.
+    """
+    try:
+        if os.path.exists(cfg.WS_PORTS_FILE):
+            with open(cfg.WS_PORTS_FILE, "r") as f:
+                return json.load(f)
+        else:
+            return []
+    except Exception as e:
+        console.print(f"[bold red][WS][/bold red] Error loading WS ports: {e}")
+        return []
+
+def port_file_age():
+    """
+    Returns the age of the port file in seconds.
+    If the file does not exist, returns None.
+    """
+    if not os.path.exists(cfg.WS_PORTS_FILE):
+        return None
+    return int(time.time() - os.path.getmtime(cfg.WS_PORTS_FILE))
+
+def ports_file_age():
+    """
+    Returns the age of the ports.txt file in seconds.
+    If the file does not exist, returns None.
+    """
+    ports_file_path = "ports.txt"
+    if not os.path.exists(ports_file_path):
+        return None
+    return int(time.time() - os.path.getmtime(ports_file_path))
+
+def should_regenerate_ports_file():
+    """
+    Determines if the ports.txt file should be regenerated.
+    Returns True if the file doesn't exist or is older than 24 hours.
+    """
+    age = ports_file_age()
+    if age is None:
+        console.print("[bold yellow][PORT_SCANNER][/bold yellow] ports.txt not found, regeneration needed")
+        return True
+    
+    # 24 hours in seconds
+    max_age = 60 * 60 * 24
+    if age > max_age:
+        console.print(f"[bold yellow][PORT_SCANNER][/bold yellow] ports.txt is {age//3600} hours old, regeneration needed")
+        return True
+    
+    return False

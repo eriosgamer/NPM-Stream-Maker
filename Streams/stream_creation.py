@@ -16,6 +16,7 @@ Author: [Your Name or Team]
 """
 
 from rich.console import Console
+from rich.table import Table
 
 console = Console()
 
@@ -79,9 +80,6 @@ def add_streams_sqlite_with_ip_extended(new_entries):
     Groups by port and updates or inserts as appropriate.
     Applies WireGuard logic if available.
     """
-    console.print(
-        f"[bold green][STREAM_MANAGER][/bold green] Adding {len(new_entries)} pre-processed streams to database...")
-
     if not new_entries:
         return
     if not os.path.exists(cfg.SQLITE_DB_PATH):
@@ -89,6 +87,7 @@ def add_streams_sqlite_with_ip_extended(new_entries):
         return
 
     conn = sqlite3.connect(cfg.SQLITE_DB_PATH)
+    summary_rows = []
     try:
         cur = conn.cursor()
         # Check if the 'stream' table exists
@@ -193,6 +192,7 @@ def add_streams_sqlite_with_ip_extended(new_entries):
                     "UPDATE stream SET tcp_forwarding=?, udp_forwarding=?, forwarding_host=?, forwarding_port=?, modified_on=datetime('now') WHERE id=?",
                     (new_tcp, new_udp, final_ip, forwarding_port, stream_id)
                 )
+                summary_rows.append((incoming_port, final_ip, forwarding_port, 'TCP' if new_tcp else 'UDP', 'Actualizado'))
             else:
                 # Insert new stream with all required fields
                 console.print(
@@ -214,13 +214,23 @@ def add_streams_sqlite_with_ip_extended(new_entries):
                         0                        # certificate_id
                     )
                 )
+                summary_rows.append((incoming_port, final_ip, forwarding_port, 'TCP' if protos["tcp"] else 'UDP', 'Creado'))
 
         conn.commit()
-        console.print(
-            f"[bold green][STREAM_MANAGER][/bold green] Successfully processed {len(by_port)} streams")
 
     except Exception as e:
-        console.print(
-            f"[bold red][STREAM_MANAGER][/bold red] Error adding streams to database: {e}")
+        console.print(f"[bold red][STREAM_MANAGER][/bold red] Error agregando streams: {e}")
     finally:
+        if summary_rows:
+            table = Table(title="Resumen de Streams Agregados", show_lines=True)
+            table.add_column("Puerto", style="cyan", justify="center")
+            table.add_column("Destino", style="magenta", justify="center")
+            table.add_column("Forward", style="yellow", justify="center")
+            table.add_column("Protocolo", style="green", justify="center")
+            table.add_column("Estado", style="bold", justify="center")
+            for row in summary_rows:
+                table.add_row(*[str(x) for x in row])
+            console.print(table)
+        else:
+            console.print("[bold yellow][STREAM_MANAGER][/bold yellow] No se agregaron streams nuevos.")
         conn.close()

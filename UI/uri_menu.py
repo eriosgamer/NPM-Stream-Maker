@@ -309,7 +309,22 @@ def edit_ws_uris_menu(console):
 
                 elif action == "save":
                     WebSocketConfig.save_ws_config(uris=uris, tokens=tokens)
-                    console.print("[green]URIs and tokens saved to .env[/green]")
+                    # --- NUEVO: Recargar la configuración global en memoria ---
+                    # Forzar recarga en los módulos que usan variables globales
+                    if hasattr(WebSocketConfig, "_uris"):
+                        delattr(WebSocketConfig, "_uris")
+                    if hasattr(WebSocketConfig, "_tokens"):
+                        delattr(WebSocketConfig, "_tokens")
+                    if hasattr(WebSocketConfig, "_server_token"):
+                        delattr(WebSocketConfig, "_server_token")
+                    # También recargar en websocket_config si es necesario
+                    try:
+                        import WebSockets.websocket_config as ws_config
+                        ws_config.uris, _, ws_config.uri = WebSocketConfig.get_ws_config()
+                        ws_config.uri = ws_config.uris[0] if ws_config.uris else None
+                    except Exception:
+                        pass
+                    console.print("[green]URIs and tokens saved to .env and recargados en memoria[/green]")
                     input("\nPress Enter to return to main menu...")
                     return
 

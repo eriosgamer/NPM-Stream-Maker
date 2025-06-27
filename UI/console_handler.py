@@ -122,10 +122,10 @@ class ConsoleHandler:
     def create_header(self, title: str = "NPM Stream Manager", subtitle: str = "Console Output"):
         """Crea el header fijo para la consola"""
         header_content = Text()
-        header_content.append(title, style="bold blue", justify="center")
+        header_content.append(title, style="bold blue")
         if subtitle:
-            header_content.append(f"\n{subtitle}", style="dim white", justify="center")
-        
+            header_content.append(f"\n{subtitle}", style="dim white")
+
         return Panel(
             Align.center(header_content),
             style="bold blue",
@@ -250,7 +250,7 @@ class ConsoleHandler:
             # Crear layout actualizado
             layout = Layout()
             layout.split_column(
-                Layout(self.create_header(self.current_component, "Live Console"), name="header", size=4),
+                Layout(self.create_header(self.current_component or "NPM Stream Manager", "Live Console"), name="header", size=4),
                 Layout(name="main"),
                 Layout(self.create_footer(), name="footer", size=3)
             )
@@ -319,18 +319,76 @@ class ConsoleHandler:
                                auto_scroll: bool = True,
                                show_help: bool = True):
         """
-        Muestra una consola scrollable con todos los mensajes del historial.
+        Muestra una consola scrollable simple, similar al cliente, con navegación por teclas.
         """
-        from rich.console import Group
-        from rich.padding import Padding
-        
-        terminal_width, terminal_height = self.get_terminal_size()
-        available_height = terminal_height - 8  # Espacio para header/footer
-        
-        # Preparar mensajes para mostrar
+        import os, sys
+        import time
+
+        # Manejo de teclas multiplataforma simple
+        if os.name == "nt":
+            import msvcrt
+            def get_key():
+                key = msvcrt.getch()
+                if key == b"\xe0":
+                    key2 = msvcrt.getch()
+                    if key2 == b"H":
+                        return "up"
+                    elif key2 == b"P":
+                        return "down"
+                    elif key2 == b"G":
+                        return "home"
+                    elif key2 == b"O":
+                        return "end"
+                    elif key2 == b"I":
+                        return "pgup"
+                    elif key2 == b"Q":
+                        return "pgdn"
+                elif key == b"\r":
+                    return "enter"
+                elif key == b"\x1b":
+                    return "esc"
+                elif key == b" ":
+                    return "space"
+        else:
+            import termios, tty, select
+            def get_key():
+                fd = sys.stdin.fileno()
+                old_settings = termios.tcgetattr(fd)
+                try:
+                    tty.setraw(fd)
+                    while True:
+                        if select.select([sys.stdin], [], [], 0.1)[0]:
+                            key = sys.stdin.read(1)
+                            if key == "\x1b":
+                                seq = sys.stdin.read(1)
+                                if seq == "[":
+                                    seq2 = sys.stdin.read(1)
+                                    if seq2 == "A":
+                                        return "up"
+                                    elif seq2 == "B":
+                                        return "down"
+                                    elif seq2 == "H":
+                                        return "home"
+                                    elif seq2 == "F":
+                                        return "end"
+                                    elif seq2 == "5":
+                                        if sys.stdin.read(1) == "~":
+                                            return "pgup"
+                                    elif seq2 == "6":
+                                        if sys.stdin.read(1) == "~":
+                                            return "pgdn"
+                                else:
+                                    return "esc"
+                            elif key == "\r" or key == "\n":
+                                return "enter"
+                            elif key == " ":
+                                return "space"
+                finally:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+        # Mensajes formateados
         messages_to_show = []
-        for msg_data in self.message_history[-available_height:]:
-            # Recrear el mensaje formateado
+        for msg_data in self.message_history:
             formatted = self.format_message(
                 msg_data["component"],
                 msg_data["message"],
@@ -338,41 +396,44 @@ class ConsoleHandler:
                 msg_data.get("details")
             )
             messages_to_show.append(formatted)
-        
+
         if not messages_to_show:
             messages_to_show = [Text("No messages in history...", style="dim white")]
-        
-        # Crear layout
-        layout = Layout()
-        layout.split_column(
-            Layout(self.create_header("Message History", f"Showing last {len(messages_to_show)} messages"), 
-                   name="header", size=4),
-            Layout(name="main"),
-            Layout(self.create_footer([
-                ("↑↓", "Scroll"),
-                ("PgUp/PgDn", "Page"),
-                ("Home/End", "Top/Bottom"),
-                ("Esc", "Exit")
-            ]), name="footer", size=3)
-        )
-        
-        # Contenido principal
-        content_group = Group(*messages_to_show)
-        content_panel = Panel(
-            content_group,
-            title="[bold green]Message History[/bold green]",
-            border_style="green",
-            padding=(0, 1)
-        )
-        
-        layout["main"].update(content_panel)
-        
-        # Mostrar layout
-        self.console.print(layout)
-        
-        if show_help:
-            self.console.print("\n[dim]Press any key to continue...[/dim]")
-            input()
+
+        # Determinar altura de terminal y ventana de scroll
+        terminal_height = self.console.size.height
+        window_size = max(5, terminal_height - 4)  # 4 líneas para controles y título
+        scroll_pos = max(0, len(messages_to_show) - window_size)
+
+        while True:
+            self.clear_console()
+            self.console.print(f"[bold blue]{title}[/bold blue]  ([yellow]↑↓ PgUp/PgDn Home/End Esc[/yellow])")
+            self.console.print("-" * self.console.size.width)
+            window = messages_to_show[scroll_pos:scroll_pos+window_size]
+            for msg in window:
+                self.console.print(msg)
+            self.console.print("-" * self.console.size.width)
+            self.console.print(
+                f"[dim]Scroll: {scroll_pos+1}-{min(scroll_pos+window_size, len(messages_to_show))} / {len(messages_to_show)}[/dim]"
+            )
+            key = get_key()
+            if key == "up":
+                if scroll_pos > 0:
+                    scroll_pos -= 1
+            elif key == "down":
+                if scroll_pos < max(0, len(messages_to_show) - window_size):
+                    scroll_pos += 1
+            elif key == "pgup":
+                scroll_pos = max(0, scroll_pos - window_size)
+            elif key == "pgdn":
+                scroll_pos = min(max(0, len(messages_to_show) - window_size), scroll_pos + window_size)
+            elif key == "home":
+                scroll_pos = 0
+            elif key == "end":
+                scroll_pos = max(0, len(messages_to_show) - window_size)
+            elif key == "esc" or key == "enter":
+                break
+            # else: ignorar otras teclas
 
     def create_status_dashboard(self, 
                                components_status: Dict[str, Dict[str, Any]],
