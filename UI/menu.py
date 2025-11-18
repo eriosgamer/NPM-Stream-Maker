@@ -289,8 +289,7 @@ def handle_choice(choice):
         else:
             ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
-    # Opción 5 ahora es Administrar Streams, ya movida
-    elif choice == "6":
+    elif choice == "4":
         if npm_available:
             # Set environment variable to indicate running from panel
             os.environ["RUN_FROM_PANEL"] = "1"
@@ -298,7 +297,7 @@ def handle_choice(choice):
         else:
             ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
-    elif choice == "7":
+    elif choice == "5":
         if ws_uris_available:
             ws_client.start_ws_client()
         else:
@@ -307,10 +306,10 @@ def handle_choice(choice):
                 "No WebSocket URIs defined. Please configure WebSocket URIs first.",
             )
             input("\nPress Enter to continue...")
-    elif choice == "8":
+    elif choice == "6":
         delete_npm()
         input("\nPress Enter to continue...")
-    elif choice == "9":
+    elif choice == "7":
         from UI import service_menu
 
         service_menu.manage_auto_start_service()
