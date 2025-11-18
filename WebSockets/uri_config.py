@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 from WebSockets import diagnostics
 from UI.console_handler import ws_error, ws_info, ws_warning
 
+
 def check_pending_uri_updates():
     """
     Check for pending URI configuration updates.
@@ -24,7 +25,10 @@ def check_pending_uri_updates():
                 pending_updates = json.load(f)
 
             # Print the number of pending URI updates found
-            ws_info("[WS_CLIENT]", f"[bold cyan] Found pending URI updates: {len(pending_updates)} changes[/bold cyan]")
+            ws_info(
+                "[WS_CLIENT]",
+                f"[bold cyan] Found pending URI updates: {len(pending_updates)} changes[/bold cyan]",
+            )
 
             # Apply updates to environment variables (typically done by Control Panel)
             if "uris" in pending_updates:
@@ -34,11 +38,16 @@ def check_pending_uri_updates():
 
             # Remove the pending file after applying updates
             os.remove(pending_file)
-            ws_info("[WS_CLIENT]", "[bold green] Applied pending URI updates[/bold green]")
+            ws_info(
+                "[WS_CLIENT]", "[bold green] Applied pending URI updates[/bold green]"
+            )
 
         except Exception as e:
             # Print error if there was a problem applying updates
-            ws_error("[WS_CLIENT]", f"[bold red] Error applying pending updates: {e}[/bold red]")
+            ws_error(
+                "[WS_CLIENT]",
+                f"[bold red] Error applying pending updates: {e}[/bold red]",
+            )
     else:
         # Print if no pending updates were found
         ws_info("[WS_CLIENT]", "[bold blue] No pending URI updates found[/bold blue]")
@@ -58,6 +67,7 @@ def has_uri_config_changed():
 
     # Calculate current hash using MD5
     import hashlib
+
     current_hash = hashlib.md5(current_config.encode()).hexdigest()
 
     # Check against saved hash from previous run
@@ -68,11 +78,17 @@ def has_uri_config_changed():
 
             if current_hash != saved_hash:
                 # Print if configuration has changed
-                ws_info("[WS_CLIENT]", "[bold cyan] URI configuration has changed[/bold cyan]")
+                ws_info(
+                    "[WS_CLIENT]",
+                    "[bold cyan] URI configuration has changed[/bold cyan]",
+                )
                 return True
             else:
                 # Print if configuration is unchanged
-                ws_info("[WS_CLIENT]", "[bold green] URI configuration unchanged[/bold green]")
+                ws_info(
+                    "[WS_CLIENT]",
+                    "[bold green] URI configuration unchanged[/bold green]",
+                )
                 return False
 
         except Exception as e:
@@ -81,7 +97,10 @@ def has_uri_config_changed():
             return True
     else:
         # Print if no previous configuration hash was found
-        ws_info("[WS_CLIENT]", "[bold cyan] No previous configuration hash found[/bold cyan]")
+        ws_info(
+            "[WS_CLIENT]",
+            "[bold cyan] No previous configuration hash found[/bold cyan]",
+        )
         return True
 
 
@@ -99,6 +118,7 @@ def save_last_uri_config():
 
         # Calculate and save hash using MD5
         import hashlib
+
         current_hash = hashlib.md5(current_config.encode()).hexdigest()
 
         with open(config_hash_file, "w") as f:

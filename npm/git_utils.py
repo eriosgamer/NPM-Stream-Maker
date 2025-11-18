@@ -7,6 +7,7 @@ from rich.progress import Progress
 # This module provides utilities for working with git repositories,
 # specifically cloning a repository with a progress bar using 'rich'.
 
+
 def check_git_available():
     """
     Checks if git is available on the system.
@@ -18,7 +19,7 @@ def check_git_available():
             ["git", "--version"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=5
+            timeout=5,
         )
         if result.returncode == 0:
             # Git is available
@@ -28,6 +29,7 @@ def check_git_available():
             return False
     except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
         return False
+
 
 def fix_permissions(path, uid=None, gid=None):
     """
@@ -45,6 +47,7 @@ def fix_permissions(path, uid=None, gid=None):
             os.chown(os.path.join(root, momo), uid, gid)
     os.chown(path, uid, gid)
 
+
 def repo_clone(repo_url, destino):
     """
     Clones a git repository showing a progress bar.
@@ -61,15 +64,14 @@ def repo_clone(repo_url, destino):
         shutil.rmtree(destino)
     with Progress() as progress:
         # Add a new task to the progress bar for cloning
-        task = progress.add_task(
-            "[cyan]Cloning AMPTemplates repository...", total=100)
+        task = progress.add_task("[cyan]Cloning AMPTemplates repository...", total=100)
         # Use subprocess to clone and show simulated progress
         process = subprocess.Popen(
             ["git", "clone", "--progress", repo_url, destino],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
         )
         percent = 0
         # Read lines from stderr to parse git progress output
@@ -77,7 +79,7 @@ def repo_clone(repo_url, destino):
             for line in process.stderr:
                 if "Receiving objects" in line:
                     # Extract percentage from line using regular expressions
-                    match = re.search(r'(\d+)%', line)
+                    match = re.search(r"(\d+)%", line)
                     if match:
                         percent = int(match.group(1))
                         # Update progress bar with current percentage

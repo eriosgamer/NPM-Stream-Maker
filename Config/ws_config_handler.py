@@ -8,6 +8,7 @@ from Config import config as cfg
 # This module handles reading and writing WebSocket configuration (URIs and tokens)
 # from/to the .env file used by the application.
 
+
 def get_ws_config():
     """
     Retrieves WebSocket URIs and tokens from the .env file.
@@ -24,12 +25,14 @@ def get_ws_config():
                 line = line.strip()
                 # Parse the WS_URIS entry
                 if line.startswith("WS_URIS="):
-                    uris = [u.strip() for u in line.split(
-                        "=", 1)[1].split(",") if u.strip()]
+                    uris = [
+                        u.strip() for u in line.split("=", 1)[1].split(",") if u.strip()
+                    ]
                 # Parse the WS_TOKENS entry
                 elif line.startswith("WS_TOKENS="):
-                    tokens = [t.strip() for t in line.split(
-                        "=", 1)[1].split(",") if t.strip()]
+                    tokens = [
+                        t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()
+                    ]
                 # Parse the WS_TOKEN_SERVER entry
                 elif line.startswith("WS_TOKEN_SERVER="):
                     server_token = line.split("=", 1)[1]
@@ -39,6 +42,7 @@ def get_ws_config():
         tokens.append("")
 
     return uris, tokens, server_token
+
 
 def save_ws_config(uris=None, tokens=None, server_token=None):
     """

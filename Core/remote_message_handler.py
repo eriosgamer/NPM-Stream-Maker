@@ -47,7 +47,10 @@ def clean_old_pending_remote_ports():
         if now - ts <= REMOTE_PORT_TIMEOUT:
             new_pending.append(entry)
         else:
-            ws_info("[REMOTE]", f"Limpiando puerto remoto antiguo: {port}/{proto} -> {host}:{fwd_port}")
+            ws_info(
+                "[REMOTE]",
+                f"Limpiando puerto remoto antiguo: {port}/{proto} -> {host}:{fwd_port}",
+            )
     pending_remote_ports = new_pending
 
 
@@ -164,7 +167,9 @@ async def handle_server_message(data, websocket=None):
                         {"status": "ok", "msg": "Stream recibido, será procesado"}
                     )
                 )
-            ws_info("[REMOTE]", f"Stream remoto recibido y encolado para procesamiento.")
+            ws_info(
+                "[REMOTE]", f"Stream remoto recibido y encolado para procesamiento."
+            )
         except Exception as e:
             if websocket is not None:
                 await websocket.send(json.dumps({"status": "error", "msg": str(e)}))
@@ -188,7 +193,10 @@ async def handle_server_message(data, websocket=None):
         if not wg_mode:
             # Conflict resolution server (non-WG): Handle conflict resolution
             if ports_pre_approved:
-                ws_warning("[WS]", f"Received pre-approved ports on conflict resolution server - this should not happen")
+                ws_warning(
+                    "[WS]",
+                    f"Received pre-approved ports on conflict resolution server - this should not happen",
+                )
                 if websocket is not None:
                     await websocket.send(
                         json.dumps(
@@ -230,20 +238,31 @@ async def handle_server_message(data, websocket=None):
                 conflict_resolutions = await cr.process_ports_with_conflict_resolution(
                     ip, hostname, ports, websocket
                 )
-                ws_info("[WS]", f"Successfully processed ports with {len(conflict_resolutions)} conflicts resolved")
+                ws_info(
+                    "[WS]",
+                    f"Successfully processed ports with {len(conflict_resolutions)} conflicts resolved",
+                )
             except Exception as e:
                 ws_error("[WS]", f"Error in conflict resolution processing: {e}")
                 if websocket is not None:
                     await websocket.send(
                         json.dumps(
-                            {"status": "error", "msg": f"Error processing ports: {str(e)}"}
+                            {
+                                "status": "error",
+                                "msg": f"Error processing ports: {str(e)}",
+                            }
                         )
                     )
         else:
             # WireGuard server: Only process pre-approved ports
             if not ports_pre_approved:
-                ws_error("[WS]", f"Received non-pre-approved ports on WG server from {hostname} ({ip})")
-                ws_error("[WS]", f"WireGuard servers should only receive pre-approved ports")
+                ws_error(
+                    "[WS]",
+                    f"Received non-pre-approved ports on WG server from {hostname} ({ip})",
+                )
+                ws_error(
+                    "[WS]", f"WireGuard servers should only receive pre-approved ports"
+                )
                 if websocket is not None:
                     await websocket.send(
                         json.dumps(
@@ -260,7 +279,10 @@ async def handle_server_message(data, websocket=None):
             # Determine peer IP for WireGuard if applicable
             wg_peer_ip = wg_utils.get_peer_ip_for_client()
             final_ip = wg_peer_ip if wg_peer_ip else ip
-            ws_info("[WS]", f"Using final IP for streams: {final_ip} (WireGuard peer IP: {wg_peer_ip})")
+            ws_info(
+                "[WS]",
+                f"Using final IP for streams: {final_ip} (WireGuard peer IP: {wg_peer_ip})",
+            )
 
             # Process ports and create streams
             new_entries_to_add = []
@@ -285,11 +307,17 @@ async def handle_server_message(data, websocket=None):
                 if conflict_resolved and incoming_port != port:
                     # WireGuard client connects directly to the alternate port
                     forwarding_port = incoming_port
-                    ws_info("[WS]", f"WG conflict resolution: incoming={incoming_port} → {final_ip}:{forwarding_port} (original port: {port})")
+                    ws_info(
+                        "[WS]",
+                        f"WG conflict resolution: incoming={incoming_port} → {final_ip}:{forwarding_port} (original port: {port})",
+                    )
                 else:
                     # No conflict, use the original port
                     forwarding_port = port
-                    ws_info("[WS]", f"WG normal: incoming={incoming_port} → {final_ip}:{forwarding_port}")
+                    ws_info(
+                        "[WS]",
+                        f"WG normal: incoming={incoming_port} → {final_ip}:{forwarding_port}",
+                    )
 
                 new_entries_to_add.append(
                     (incoming_port, proto, final_ip, forwarding_port)
@@ -306,7 +334,10 @@ async def handle_server_message(data, websocket=None):
                     }
                 )
 
-            ws_info("[WS]", f"Processing {len(new_entries_to_add)} pre-approved stream entries for WG database...")
+            ws_info(
+                "[WS]",
+                f"Processing {len(new_entries_to_add)} pre-approved stream entries for WG database...",
+            )
 
             # --- NUEVO BLOQUE: Verificar si hay cambios reales ---
             # Consultar streams existentes para este cliente y comparar
@@ -339,7 +370,10 @@ async def handle_server_message(data, websocket=None):
                         to_add.append(entry)
                 # Si todos los streams ya existen y no hay cambios, responde y no recarga NPM
                 if len(to_add) == 0:
-                    ws_info("[WS]", f"Todos los streams ya existen y no requieren actualización. No se sincroniza ni recarga NPM.")
+                    ws_info(
+                        "[WS]",
+                        f"Todos los streams ya existen y no requieren actualización. No se sincroniza ni recarga NPM.",
+                    )
                     if websocket is not None:
                         await websocket.send(
                             json.dumps(
@@ -370,7 +404,10 @@ async def handle_server_message(data, websocket=None):
                     npmh.reload_npm()
                     # ----------------------------
 
-                    ws_info("[WS]", f"Successfully processed {len(new_entries_to_add)} WG streams")
+                    ws_info(
+                        "[WS]",
+                        f"Successfully processed {len(new_entries_to_add)} WG streams",
+                    )
 
                 except Exception as e:
                     ws_info("[WS]", f"Error processing WG streams: {e}")

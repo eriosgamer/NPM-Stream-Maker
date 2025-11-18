@@ -35,7 +35,10 @@ def start_ws_client():
 
     if not uris or not tokens or not any(tokens):
         ws_error("[WS_CLIENT]", "No WebSocket URIs or tokens configured.")
-        ws_info("[WS_CLIENT]", "Please use option 3 (Edit WebSocket URIs) to configure servers and tokens first.")
+        ws_info(
+            "[WS_CLIENT]",
+            "Please use option 3 (Edit WebSocket URIs) to configure servers and tokens first.",
+        )
         input("\nPress Enter to continue...")
         return
 
@@ -60,7 +63,10 @@ def start_ws_client():
         input("\nPress Enter to continue...")
         return
 
-    ws_info("[WS_CLIENT]", f"Found {successful_connections} valid connections. Starting client...")
+    ws_info(
+        "[WS_CLIENT]",
+        f"Found {successful_connections} valid connections. Starting client...",
+    )
 
     # Start the WebSocket client for all valid servers
     try:
@@ -224,6 +230,8 @@ def load_client_assignments():
                     if port.isdigit():
                         client_assignments[(int(port), proto)] = assignment
 
-            ws_info("[WS_CLIENT]", f"Loaded {len(client_assignments)} client assignments")
+            ws_info(
+                "[WS_CLIENT]", f"Loaded {len(client_assignments)} client assignments"
+            )
     except Exception as e:
         ws_error("[WS_CLIENT]", f"Error loading client assignments: {e}")

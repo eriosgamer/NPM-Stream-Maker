@@ -2,6 +2,7 @@ import datetime
 import subprocess
 import os
 from rich.console import Console
+
 console = Console()
 import time
 import asyncio
@@ -30,6 +31,7 @@ async def periodic_cleanup():
         except Exception as e:
             ws_error("[WS]", f"Error in periodic cleanup: {e}")
 
+
 def check_docker_available():
     """
     Checks if Docker is available on the system and sets the environment variable DOCKER_AVAILABLE.
@@ -41,7 +43,7 @@ def check_docker_available():
             ["docker", "--version"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=5
+            timeout=5,
         )
         if result.returncode == 0:
             # Docker is available, set environment variable to "1"
@@ -49,13 +51,14 @@ def check_docker_available():
             return True
         else:
             # Docker command failed, set environment variable to "0"
-            os.environ["DOCKER_AVAILABLE"] = "0" 
+            os.environ["DOCKER_AVAILABLE"] = "0"
             return False
     except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
         # Exception occurred (timeout, not found, or other), set environment variable to "0"
         os.environ["DOCKER_AVAILABLE"] = "0"
         return False
-    
+
+
 def check_docker_compose_available():
     """
     Checks if Docker Compose is available on the system and sets the environment variable DOCKER_COMPOSE_AVAILABLE.
@@ -67,7 +70,7 @@ def check_docker_compose_available():
             ["docker-compose", "--version"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=5
+            timeout=5,
         )
         if result.returncode == 0:
             # Docker Compose is available, set environment variable to "1"
@@ -82,6 +85,7 @@ def check_docker_compose_available():
         os.environ["DOCKER_COMPOSE_AVAILABLE"] = "0"
         return False
 
+
 def stop_running_docker_containers():
     """
     Stops all running Docker containers.
@@ -89,14 +93,17 @@ def stop_running_docker_containers():
     """
     try:
         # Run 'docker stop $(docker ps -q)' to stop all running containers
-        subprocess.run(["docker", "stop", "$(docker", "ps", "-q)"], shell=True, check=True)
+        subprocess.run(
+            ["docker", "stop", "$(docker", "ps", "-q)"], shell=True, check=True
+        )
         return True
     except subprocess.CalledProcessError:
         return False
     except Exception as e:
         ws_error("[WS]", f"Error stopping Docker containers: {e}")
         return False
-    
+
+
 def check_and_start_npm():
     """
     Check NPM status and optionally try to start it if not running.
@@ -129,7 +136,9 @@ def check_and_start_npm():
                 ws_info("[WS]", "NPM is now running and accessible")
                 return True
             else:
-                ws_warning("[WS]", "NPM started but not yet accessible, waiting longer...")
+                ws_warning(
+                    "[WS]", "NPM started but not yet accessible, waiting longer..."
+                )
                 # Give it more time
                 time.sleep(15)
                 npm_status = npmst.check_npm()
@@ -145,7 +154,8 @@ def check_and_start_npm():
     except Exception as e:
         ws_error("[WS]", f"Error checking NPM status: {e}")
         return False
-    
+
+
 def cleanup_disconnected_clients():
     """
     Remove clients that are no longer connected or haven't been seen recently.
@@ -165,23 +175,34 @@ def cleanup_disconnected_clients():
                 # websockets 10+ uses .closed (bool), older may use .close_code
                 if ws is None:
                     ws_closed = True
-                elif hasattr(ws, 'closed'):
+                elif hasattr(ws, "closed"):
                     ws_closed = ws.closed
-                elif hasattr(ws, 'close_code'):
+                elif hasattr(ws, "close_code"):
                     ws_closed = ws.close_code is not None
             except Exception:
                 ws_closed = True  # Assume closed if we can't check
 
             # Format last_seen and current_time
             try:
-                last_seen_fmt = datetime.datetime.fromtimestamp(last_seen).strftime("%d/%m/%Y %I:%M:%S %p") if last_seen else "N/A"
-                now_fmt = datetime.datetime.fromtimestamp(current_time).strftime("%d/%m/%Y %I:%M:%S %p")
+                last_seen_fmt = (
+                    datetime.datetime.fromtimestamp(last_seen).strftime(
+                        "%d/%m/%Y %I:%M:%S %p"
+                    )
+                    if last_seen
+                    else "N/A"
+                )
+                now_fmt = datetime.datetime.fromtimestamp(current_time).strftime(
+                    "%d/%m/%Y %I:%M:%S %p"
+                )
             except Exception:
                 last_seen_fmt = str(last_seen)
                 now_fmt = str(current_time)
 
             # Debug: Log client status
-            ws_info("[WS]", f"Checking client {client_id}: ws_closed={ws_closed}, last_seen={last_seen_fmt}, now={now_fmt}")
+            ws_info(
+                "[WS]",
+                f"Checking client {client_id}: ws_closed={ws_closed}, last_seen={last_seen_fmt}, now={now_fmt}",
+            )
 
             # Check if websocket is closed or client hasn't been seen recently
             if ws_closed or (current_time - last_seen > timeout):
@@ -194,7 +215,10 @@ def cleanup_disconnected_clients():
                 del cfg.connected_clients[client_id]
 
     if disconnected:
-        ws_warning("[WS]", f"Cleaned up {len(disconnected)} disconnected clients: {disconnected}")
+        ws_warning(
+            "[WS]",
+            f"Cleaned up {len(disconnected)} disconnected clients: {disconnected}",
+        )
 
         # Reassign ports after cleanup
         asyncio.create_task(ch.notify_clients_of_conflicts_and_assignments())

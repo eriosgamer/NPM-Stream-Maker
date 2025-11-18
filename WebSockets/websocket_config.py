@@ -26,6 +26,7 @@ uri = uris[0] if uris else None
 # testing connections, and persisting state related to assigned ports, connected clients,
 # and port conflict resolutions.
 
+
 def get_ws_uri(console):
     """
     Gets the WebSocket server URI from the .env or prompts the user if not configured.
@@ -36,7 +37,8 @@ def get_ws_uri(console):
 
     if not uri:
         uri = Prompt.ask(
-            "[bold cyan]Enter the WebSocket server URI (e.g. ws://1.2.3.4:8765)[/bold cyan]")
+            "[bold cyan]Enter the WebSocket server URI (e.g. ws://1.2.3.4:8765)[/bold cyan]"
+        )
         # Save the new URI to config
         if uri:
             existing_uris, existing_tokens, _ = WebSocketConfig.get_ws_config()
@@ -44,8 +46,7 @@ def get_ws_uri(console):
                 existing_uris[0] = uri
             else:
                 existing_uris = [uri]
-            WebSocketConfig.save_ws_config(
-                uris=existing_uris, tokens=existing_tokens)
+            WebSocketConfig.save_ws_config(uris=existing_uris, tokens=existing_tokens)
     return uri
 
 
@@ -61,8 +62,8 @@ def test_ws_connection(uri, token):
             async with websockets.connect(
                 uri,
                 ping_interval=60,  # Increased from None to 60 seconds
-                ping_timeout=30,   # Added ping timeout
-                close_timeout=10      # Increased close timeout
+                ping_timeout=30,  # Added ping timeout
+                close_timeout=10,  # Increased close timeout
             ) as websocket:
                 # Send test message with token for validation
                 test_data = {
@@ -70,7 +71,7 @@ def test_ws_connection(uri, token):
                     "token": token,
                     "test_connection": True,
                     "ip": "control_panel_test",
-                    "hostname": "control_panel_test"
+                    "hostname": "control_panel_test",
                 }
                 await websocket.send(json.dumps(test_data))
                 resp = await asyncio.wait_for(websocket.recv(), timeout=5)
@@ -82,25 +83,45 @@ def test_ws_connection(uri, token):
                 elif data.get("status") == "error":
                     error_msg = data.get("msg", "Unknown error")
                     if "token" in error_msg.lower():
-                        ws_error("[WS_CLIENT]", f"[bold red]Token validation failed for {uri}: {error_msg}[/bold red]")
+                        ws_error(
+                            "[WS_CLIENT]",
+                            f"[bold red]Token validation failed for {uri}: {error_msg}[/bold red]",
+                        )
                     else:
-                        ws_warning("[WS_CLIENT]", f"[bold yellow]Server error for {uri}: {error_msg}[/bold yellow]")
+                        ws_warning(
+                            "[WS_CLIENT]",
+                            f"[bold yellow]Server error for {uri}: {error_msg}[/bold yellow]",
+                        )
                     return False
                 else:
                     # Any other response might indicate server is working
                     return True
         except InvalidHandshake as e:
-            ws_error("[WS_CLIENT]", f"[bold red]WebSocket handshake failed for {uri}: {e}[/bold red]")
-            ws_warning("[WS_CLIENT]", f"[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]")
+            ws_error(
+                "[WS_CLIENT]",
+                f"[bold red]WebSocket handshake failed for {uri}: {e}[/bold red]",
+            )
+            ws_warning(
+                "[WS_CLIENT]",
+                f"[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]",
+            )
             return False
         except asyncio.TimeoutError:
-            ws_error("[WS_CLIENT]", f"[bold red]Connection timeout for {uri} (server may be slow to respond)[/bold red]")
+            ws_error(
+                "[WS_CLIENT]",
+                f"[bold red]Connection timeout for {uri} (server may be slow to respond)[/bold red]",
+            )
             return False
         except websockets.exceptions.ConnectionClosed:
-            ws_error("[WS_CLIENT]", f"[bold red]Connection closed immediately for {uri}[/bold red]")
+            ws_error(
+                "[WS_CLIENT]",
+                f"[bold red]Connection closed immediately for {uri}[/bold red]",
+            )
             return False
         except Exception as e:
-            ws_error("[WS_CLIENT]", f"[bold red]Connection error for {uri}: {e}[/bold red]")
+            ws_error(
+                "[WS_CLIENT]", f"[bold red]Connection error for {uri}: {e}[/bold red]"
+            )
             return False
 
     try:
@@ -120,12 +141,20 @@ def save_state():
         json.dump(connected_clients, f)
     # Save port conflict resolutions
     serializable_resolutions = {}
-    for (original_port, protocol, server_ip), alt_port in port_conflict_resolutions.items():
+    for (
+        original_port,
+        protocol,
+        server_ip,
+    ), alt_port in port_conflict_resolutions.items():
         key = f"{original_port}|{protocol}|{server_ip}"
         serializable_resolutions[key] = alt_port
     with open(cfg.PORT_CONFLICT_RESOLUTIONS_FILE, "w") as f:
         json.dump(serializable_resolutions, f, indent=2)
-    ws_info("[WS_CLIENT]", f"[bold green]Saved {len(port_conflict_resolutions)} port conflict resolutions[/bold green]")
+    ws_info(
+        "[WS_CLIENT]",
+        f"[bold green]Saved {len(port_conflict_resolutions)} port conflict resolutions[/bold green]",
+    )
+
 
 # Copied
 def load_state():
@@ -146,10 +175,18 @@ def load_state():
                 saved_resolutions = json.load(f)
             for key, alt_port in saved_resolutions.items():
                 original_port, protocol, server_ip = key.split("|", 2)
-                port_conflict_resolutions[(int(original_port), protocol, server_ip)] = alt_port
-            ws_info("[WS_CLIENT]", f"[bold green]Loaded {len(port_conflict_resolutions)} port conflict resolutions from disk[/bold green]")
+                port_conflict_resolutions[(int(original_port), protocol, server_ip)] = (
+                    alt_port
+                )
+            ws_info(
+                "[WS_CLIENT]",
+                f"[bold green]Loaded {len(port_conflict_resolutions)} port conflict resolutions from disk[/bold green]",
+            )
         except Exception as e:
-            ws_warning("[WS_CLIENT]", f"[bold yellow]Error loading port conflict resolutions: {e}[/bold yellow]")
+            ws_warning(
+                "[WS_CLIENT]",
+                f"[bold yellow]Error loading port conflict resolutions: {e}[/bold yellow]",
+            )
 
 
 def is_first_server():

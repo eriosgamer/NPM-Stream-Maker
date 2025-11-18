@@ -9,6 +9,7 @@ import os
 import sys
 import sqlite3
 from dotenv import load_dotenv
+
 load_dotenv()
 from rich.console import Console
 
@@ -18,6 +19,7 @@ from Config import config as cfg
 from UI.console_handler import ws_info, ws_error, ws_warning
 
 console = Console()
+
 
 # Copied
 def clear_all_conflict_resolution_data():
@@ -58,12 +60,17 @@ def clear_all_conflict_resolution_data():
                     )
                     conn.commit()
                     cleared_count += conflict_streams
-                    ws_info("[STREAM_MANAGER]", f"Cleared {conflict_streams} conflict resolution streams from database")
+                    ws_info(
+                        "[STREAM_MANAGER]",
+                        f"Cleared {conflict_streams} conflict resolution streams from database",
+                    )
 
             finally:
                 conn.close()
     except Exception as e:
-        ws_error("[STREAM_MANAGER]", f"Error clearing database conflict resolutions: {e}")
+        ws_error(
+            "[STREAM_MANAGER]", f"Error clearing database conflict resolutions: {e}"
+        )
 
     ws_info("[STREAM_MANAGER]", f"Total items cleared: {cleared_count}")
     return cleared_count

@@ -15,6 +15,7 @@ load_dotenv()
 # Make fcntl optional for Windows compatibility
 try:
     import fcntl
+
     FCNTL_AVAILABLE = True
 except ImportError:
     FCNTL_AVAILABLE = False
@@ -23,9 +24,7 @@ except ImportError:
 WS_PORTS_FILE = "ws_ports.json"
 
 # List of keywords used to identify port-related configuration fields
-PORT_KEYWORDS = [
-    'port', 'queryport', 'rconport', 'steamport', 'gameport', 'serverport'
-]
+PORT_KEYWORDS = ["port", "queryport", "rconport", "steamport", "gameport", "serverport"]
 
 # List of available scripts and their descriptions for the main menu
 SCRIPTS = [
@@ -37,7 +36,7 @@ SCRIPTS = [
     ("WebSocket Server", "ws_server.py"),
     ("WebSocket Client", "ws_client.py"),
     ("View Port Conflict Resolutions", "__view_conflicts__"),
-    ("Exit", None)
+    ("Exit", None),
 ]
 
 # List of required system commands and their names for environment validation
@@ -54,7 +53,7 @@ CONFLICT_FILES = [
     "client_assignments.json",
     "assigned_ports.json",
     "connected_clients.json",
-    "ws_ports.json"
+    "ws_ports.json",
 ]
 
 # Name of the environment variable file
@@ -69,17 +68,23 @@ SQLITE_DB_PATH = os.path.join(os.getcwd(), "nginx", "data", "database.sqlite")
 WS_TOKEN = token_manager.load_ws_token()
 
 # WebSocket Server Configuration
-WS_SERVER_PORT = int(os.environ.get("WS_SERVER_PORT", 8765))  # Default port 8765, configurable via environment
+WS_SERVER_PORT = int(
+    os.environ.get("WS_SERVER_PORT", 8765)
+)  # Default port 8765, configurable via environment
 
 # File paths for port and client assignment tracking
 ASSIGNED_PORTS_FILE = "assigned_ports.json"
 CONNECTED_CLIENTS_FILE = "connected_clients.json"
-PORT_CONFLICT_RESOLUTIONS_FILE = "port_conflict_resolutions.json"  # New file for conflict mappings
+PORT_CONFLICT_RESOLUTIONS_FILE = (
+    "port_conflict_resolutions.json"  # New file for conflict mappings
+)
 
 # In-memory dictionaries for tracking connected clients, assigned ports, and conflict resolutions
 connected_clients = {}
 assigned_ports = {}
-port_conflict_resolutions = {}  # New: {(original_port, protocol, server_ip): alternative_port}
+port_conflict_resolutions = (
+    {}
+)  # New: {(original_port, protocol, server_ip): alternative_port}
 
 # Lock for synchronizing access to ws_ports.json
 ws_ports_lock = threading.Lock()

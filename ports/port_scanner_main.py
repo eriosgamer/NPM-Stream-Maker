@@ -31,8 +31,7 @@ def gen_ports_file():
     # URL of the AMPTemplates repository to clone
     repo_url = "https://github.com/CubeCoders/AMPTemplates.git"
     # Directory where the repository will be cloned
-    repo_dir = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), "AMPTemplates")
+    repo_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AMPTemplates")
 
     # Clone and process AMPTemplates repository
     git_utils.repo_clone(repo_url, repo_dir)
@@ -51,8 +50,7 @@ def gen_ports_file():
 
     # Process each file and extract ports using a progress bar
     with Progress() as progress:
-        task = progress.add_task(
-            "[cyan]Processing files...", total=total_files)
+        task = progress.add_task("[cyan]Processing files...", total=total_files)
         read_count = 0
         for fpath in files:
             # Search for ports in the current file
@@ -63,7 +61,7 @@ def gen_ports_file():
             progress.update(
                 task,
                 advance=1,
-                description=f"[cyan]Processing: {os.path.basename(fpath)} ({read_count}/{total_files})"
+                description=f"[cyan]Processing: {os.path.basename(fpath)} ({read_count}/{total_files})",
             )
 
     # Expand ports for game instances (for each key)
@@ -75,14 +73,14 @@ def gen_ports_file():
             continue
         if len(ports) == 1:
             # Single port, expand as individual
-            expanded_ports.update(
-                pfr.expand_instances_per_port(ports, max_instances=5))
+            expanded_ports.update(pfr.expand_instances_per_port(ports, max_instances=5))
         else:
             # Range, expand as blocks and alternative incoming ports
             ranges = pfr.group_ranges(ports)
             # Collect both main and alternative ports
             ports_this_range = pfr.expand_instances_per_range(
-                ranges, max_instances=5, use_alternative_ranges=True)
+                ranges, max_instances=5, use_alternative_ranges=True
+            )
             expanded_ports.update(ports_this_range)
             all_alternative_ports.update(ports_this_range)
 
@@ -97,14 +95,21 @@ def gen_ports_file():
     # Show all ports in a single line using OPNsense-compatible range format
     ranges = pfr.group_ranges(unique_ports)
     alt_ranges = pfr.group_ranges(unique_alternative_ports)
-    console.rule(
-        "[bold green]Ports detected in all files (OPNsense range format)")
-    opnsense_list = ','.join(
-        f"{str(start).replace(' ', '')}:{str(end).replace(' ', '')}" if start != end else f"{str(start).replace(' ', '')}"
+    console.rule("[bold green]Ports detected in all files (OPNsense range format)")
+    opnsense_list = ",".join(
+        (
+            f"{str(start).replace(' ', '')}:{str(end).replace(' ', '')}"
+            if start != end
+            else f"{str(start).replace(' ', '')}"
+        )
         for start, end in ranges
     )
-    opnsense_alt_list = ','.join(
-        f"{str(start).replace(' ', '')}:{str(end).replace(' ', '')}" if start != end else f"{str(start).replace(' ', '')}"
+    opnsense_alt_list = ",".join(
+        (
+            f"{str(start).replace(' ', '')}:{str(end).replace(' ', '')}"
+            if start != end
+            else f"{str(start).replace(' ', '')}"
+        )
         for start, end in alt_ranges
     )
     ws_info("[PORT_SCANNER]", "[yellow]OPNsense: [/yellow]")
@@ -122,7 +127,7 @@ def gen_ports_file():
         "port_ranges": len(alt_ranges),
         "amp_templates_processed": total_files,
         "steam_game_ports_included": len(steam_ports),
-        "version": "2.0"
+        "version": "2.0",
     }
 
     with open("ports_metadata.json", "w") as f:
@@ -148,7 +153,9 @@ def gen_ports_file():
         shutil.rmtree(repo_dir)
         ws_info("[PORT_SCANNER]", f"[bold red]AMPTemplates repository deleted.")
     except Exception as e:
-        ws_error("[PORT_SCANNER]", f"[red]Could not delete AMPTemplates repository: {e}")
+        ws_error(
+            "[PORT_SCANNER]", f"[red]Could not delete AMPTemplates repository: {e}"
+        )
 
     console.rule("[bold blue]Port Scanner finished")
     return True

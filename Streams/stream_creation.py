@@ -99,7 +99,10 @@ def add_streams_sqlite_with_ip_extended(new_entries):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='stream';"
         )
         if not cur.fetchone():
-            ws_error("[WS]", "The 'stream' table does not exist in the database. Cannot add streams.")
+            ws_error(
+                "[WS]",
+                "The 'stream' table does not exist in the database. Cannot add streams.",
+            )
             return
 
         # Get the first user ID (usually admin)
@@ -122,13 +125,19 @@ def add_streams_sqlite_with_ip_extended(new_entries):
         )
 
         by_port = {}
-        ws_info("[STREAM_MANAGER]", f"Adding {len(new_entries)} pre-processed streams to database...")
+        ws_info(
+            "[STREAM_MANAGER]",
+            f"Adding {len(new_entries)} pre-processed streams to database...",
+        )
 
         # Group entries by incoming port
         for incoming_port, proto, ip, forwarding_port in new_entries:
             if incoming_port not in by_port:
                 # New port detected, initialize protocol flags and store IP/forwarding_port
-                ws_info("[STREAM_MANAGER]", f"New port: incoming={incoming_port}, forwarding={forwarding_port}, IP={ip}")
+                ws_info(
+                    "[STREAM_MANAGER]",
+                    f"New port: incoming={incoming_port}, forwarding={forwarding_port}, IP={ip}",
+                )
                 by_port[incoming_port] = {
                     "tcp": 0,
                     "udp": 0,
@@ -167,14 +176,25 @@ def add_streams_sqlite_with_ip_extended(new_entries):
             if wg_available:
                 peer_ip = wg_tools.get_peer_ip_for_client_stream()
                 if peer_ip:
-                    ws_info("[STREAM_MANAGER]", f"Using WireGuard peer IP: {peer_ip} (client: {original_ip})")
+                    ws_info(
+                        "[STREAM_MANAGER]",
+                        f"Using WireGuard peer IP: {peer_ip} (client: {original_ip})",
+                    )
                     final_ip = peer_ip
                 else:
-                    ws_warning("[STREAM_MANAGER]", f"WireGuard available but no peer found, using client IP: {original_ip}")
+                    ws_warning(
+                        "[STREAM_MANAGER]",
+                        f"WireGuard available but no peer found, using client IP: {original_ip}",
+                    )
             else:
-                ws_info("[STREAM_MANAGER]", f"No WireGuard, using client IP: {original_ip}")
+                ws_info(
+                    "[STREAM_MANAGER]", f"No WireGuard, using client IP: {original_ip}"
+                )
 
-            ws_info("[STREAM_MANAGER]", f"Final stream config: incoming={incoming_port}, forwarding_host={final_ip}, forwarding_port={forwarding_port}")
+            ws_info(
+                "[STREAM_MANAGER]",
+                f"Final stream config: incoming={incoming_port}, forwarding_host={final_ip}, forwarding_port={forwarding_port}",
+            )
 
             # Check for existing stream (update vs insert)
             cur.execute(
@@ -195,7 +215,10 @@ def add_streams_sqlite_with_ip_extended(new_entries):
                 new_tcp = max(existing_tcp, protos["tcp"])
                 new_udp = max(existing_udp, protos["udp"])
 
-                ws_info("[STREAM_MANAGER]", f"Updating existing stream {stream_id}: TCP {existing_tcp}→{new_tcp}, UDP {existing_udp}→{new_udp}, IP {existing_host}→{final_ip}, fwd_port {existing_fwd_port}→{forwarding_port}")
+                ws_info(
+                    "[STREAM_MANAGER]",
+                    f"Updating existing stream {stream_id}: TCP {existing_tcp}→{new_tcp}, UDP {existing_udp}→{new_udp}, IP {existing_host}→{final_ip}, fwd_port {existing_fwd_port}→{forwarding_port}",
+                )
 
                 cur.execute(
                     "UPDATE stream SET tcp_forwarding=?, udp_forwarding=?, forwarding_host=?, forwarding_port=?, modified_on=datetime('now') WHERE id=?",
@@ -212,7 +235,10 @@ def add_streams_sqlite_with_ip_extended(new_entries):
                 )
             else:
                 # Insert new stream with all required fields
-                ws_info("[STREAM_MANAGER]", f"Creating new stream: incoming={incoming_port}, forwarding={forwarding_port}, IP={final_ip}, TCP={protos['tcp']}, UDP={protos['udp']}")
+                ws_info(
+                    "[STREAM_MANAGER]",
+                    f"Creating new stream: incoming={incoming_port}, forwarding={forwarding_port}, IP={final_ip}, TCP={protos['tcp']}, UDP={protos['udp']}",
+                )
 
                 cur.execute(
                     "INSERT INTO stream (created_on, modified_on, owner_user_id, is_deleted, incoming_port, forwarding_host, forwarding_port, tcp_forwarding, udp_forwarding, meta, enabled, certificate_id) VALUES (datetime('now'), datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -254,7 +280,26 @@ def add_streams_sqlite_with_ip_extended(new_entries):
             table.add_column("Status", style="bold", justify="center")
             for row in summary_rows:
                 table.add_row(*[str(x) for x in row])
-            ws_info("[STREAM_MANAGER]", table)
+                from UI.console_handler import console_handler
+                import io
+
+                log_buffer = io.StringIO()
+                from rich.console import Console as RichConsole
+
+                log_console = RichConsole(
+                    file=log_buffer, force_terminal=True, color_system=None
+                )
+                log_console.print(table)
+                table_text = log_buffer.getvalue()
+                console_handler.console.print(table)
+                ws_info("[STREAM_MANAGER]", table_text)
         else:
             ws_warning("[STREAM_MANAGER]", "No new streams were added.")
         conn.close()
+
+        # Sincronizar archivos .conf después de agregar streams
+        if summary_rows:
+            from Streams import stream_creation_db
+
+            ws_info("[STREAM_MANAGER]", "Synchronizing NGINX configuration files...")
+            stream_creation_db.sync_streams_conf_with_sqlite()

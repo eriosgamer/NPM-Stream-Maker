@@ -13,6 +13,7 @@ from UI.console_handler import ws_info, ws_error, ws_warning
 # for both server and client modes. It interacts with configuration files and environment variables
 # to securely manage tokens.
 
+
 def get_or_create_token(console, mode):
     """
     Gets or creates a token for the specified mode ("server" or "client").
@@ -27,7 +28,9 @@ def get_or_create_token(console, mode):
             new_token = secrets.token_urlsafe(32)
             server_token = new_token
             WebSocketConfig.save_ws_config(server_token=server_token)
-            ws_info("[WS]", f"WebSocket server token generated and saved in {cfg.ENV_FILE}")
+            ws_info(
+                "[WS]", f"WebSocket server token generated and saved in {cfg.ENV_FILE}"
+            )
             ws_info("[WS]", f"Server Token: [bold]{server_token}[/bold]")
         else:
             ws_info("[WS]", f"WebSocket server token already exists in {cfg.ENV_FILE}")
@@ -41,8 +44,10 @@ def get_or_create_token(console, mode):
         ws_info("[WS]", f"Client Tokens: {tokens}")
         return tokens
 
+
 # Redundant import, but kept for clarity in this context
 import os
+
 
 def load_ws_token():
     """
@@ -51,4 +56,3 @@ def load_ws_token():
     """
     load_dotenv()  # Carga las variables de entorno desde .env
     return os.getenv("WS_TOKEN_SERVER")
-

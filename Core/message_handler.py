@@ -13,6 +13,7 @@ from UI.console_handler import ws_info, ws_error
 # Initialize Rich console for colored terminal output
 console = Console()
 
+
 async def handle_server_message(data, websocket=None):
     """
     Handle incoming client messages (type starts with 'client_').
@@ -44,7 +45,9 @@ async def handle_server_message(data, websocket=None):
             conflicts = data.get("conflicts", [])
 
             # Print the number of received port assignments
-            ws_info("[WS_CLIENT]", f"Received port assignments: {len(assignments)} ports")
+            ws_info(
+                "[WS_CLIENT]", f"Received port assignments: {len(assignments)} ports"
+            )
 
             for assignment in assignments:
                 port = assignment.get("port")
@@ -56,7 +59,7 @@ async def handle_server_message(data, websocket=None):
                     # Update the client's port assignments with the received data
                     ws_client.client_assignments[(port, protocol)] = {
                         "assigned": assigned,
-                        "incoming_port": incoming_port
+                        "incoming_port": incoming_port,
                     }
 
             if conflicts:
@@ -64,7 +67,10 @@ async def handle_server_message(data, websocket=None):
                 ws_error("[WS_CLIENT]", f"Port conflicts detected: {len(conflicts)}")
                 for conflict in conflicts:
                     # Print details about each port conflict
-                    ws_info("[WS_CLIENT]", f"  → Port {conflict.get('port')} ({conflict.get('protocol')}) - assigned to: {conflict.get('assigned_to')}")
+                    ws_info(
+                        "[WS_CLIENT]",
+                        f"  → Port {conflict.get('port')} ({conflict.get('protocol')}) - assigned to: {conflict.get('assigned_to')}",
+                    )
 
             # Save the updated client assignments to persistent storage
             ws_client.save_client_assignments()
@@ -79,10 +85,13 @@ async def handle_server_message(data, websocket=None):
                 # Update a single port assignment
                 ws_client.client_assignments[(port, protocol)] = {
                     "assigned": assigned,
-                    "incoming_port": incoming_port
+                    "incoming_port": incoming_port,
                 }
                 # Print update information
-                ws_info("[WS_CLIENT]", f"Port assignment updated: {port} ({protocol}) - assigned: {assigned}")
+                ws_info(
+                    "[WS_CLIENT]",
+                    f"Port assignment updated: {port} ({protocol}) - assigned: {assigned}",
+                )
                 ws_client.save_client_assignments()
 
         elif message_type == "client_port_conflict_resolution":
@@ -92,14 +101,20 @@ async def handle_server_message(data, websocket=None):
             assigned_to = data.get("assigned_to")
 
             # Print information about the resolved port conflict
-            ws_info("[WS_CLIENT]", f"Port conflict resolution: {port} ({protocol}) assigned to {assigned_to}")
+            ws_info(
+                "[WS_CLIENT]",
+                f"Port conflict resolution: {port} ({protocol}) assigned to {assigned_to}",
+            )
             ws_info("[WS_CLIENT]", f"  → Conflicting clients: {conflicting_clients}")
 
         elif message_type == "client_port_conflict_resolutions":
             # Handle broadcast of conflict resolutions from the conflict resolution server
             conflicts = data.get("conflicts", [])
             # Print the number of conflict resolutions received
-            ws_info("[WS_CLIENT]", f"Received {len(conflicts)} conflict resolutions from server")
+            ws_info(
+                "[WS_CLIENT]",
+                f"Received {len(conflicts)} conflict resolutions from server",
+            )
 
             for conflict in conflicts:
                 original_port = conflict.get("original_port")
@@ -108,7 +123,10 @@ async def handle_server_message(data, websocket=None):
                 client_ip = conflict.get("client_ip")
 
                 # Print details about each conflict resolution
-                ws_info("[WS_CLIENT]", f"Conflict resolution: {original_port} ({protocol}) → {alternative_port} for {client_ip}")
+                ws_info(
+                    "[WS_CLIENT]",
+                    f"Conflict resolution: {original_port} ({protocol}) → {alternative_port} for {client_ip}",
+                )
 
         else:
             # Print a warning for unknown message types
@@ -117,4 +135,3 @@ async def handle_server_message(data, websocket=None):
     except Exception as e:
         # Print error details if message handling fails
         ws_error("[WS_CLIENT]", f"Error handling server message: {e}")
-

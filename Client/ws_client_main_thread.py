@@ -52,7 +52,10 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
         except Exception:
             is_admin = False
         if not is_admin:
-            ws_warning("[WS_CLIENT]", "Python is NOT running as administrator. Some functions may fail (port reading, network permissions, etc). Run PowerShell/cmd as Administrator if possible.")
+            ws_warning(
+                "[WS_CLIENT]",
+                "Python is NOT running as administrator. Some functions may fail (port reading, network permissions, etc). Run PowerShell/cmd as Administrator if possible.",
+            )
 
         else:
             ws_info("[WS_CLIENT]", "Python is running as administrator.")

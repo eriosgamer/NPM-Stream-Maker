@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Streams import stream_handler as sh
 from Streams import stream_cleaning as sc
 from ports import port_scanner as ps
-from UI import uri_menu
+from UI import uri_menu, stream_menu_manager
 from Server import ws_server
 from Client import ws_client
 from WebSockets import diagnostics
@@ -183,13 +183,19 @@ def show_main_menu():
     # Define menu options with their availability status
     menu_options = [
         ("Edit WebSocket URIs", True, ""),
-        ("Install NPM", os.environ.get("DOCKER_COMPOSE_AVAILABLE") == "1", "docker-compose required"),
-        ("Show existing streams", npm_available, "NPM required"),
-        ("Add Manual Stream", npm_available, "NPM required"),
-        ("Clear all streams", npm_available, "NPM required"),
+        (
+            "Install NPM",
+            os.environ.get("DOCKER_COMPOSE_AVAILABLE") == "1",
+            "docker-compose required",
+        ),
+        ("Administrar Streams", npm_available, "NPM required"),
         ("Start WebSocket Server", npm_available, "NPM required"),
         ("Start WebSocket Client", ws_uris_available, "WebSocket URIs required"),
-        ("Delete NPM", os.path.exists(config.NGINX_BASE_DIR), "NGINX directory does not exist"),
+        (
+            "Delete NPM",
+            os.path.exists(config.NGINX_BASE_DIR),
+            "NGINX directory does not exist",
+        ),
         ("Manage Auto Start Service", True, ""),
         ("Exit", True, ""),
     ]
@@ -201,9 +207,7 @@ def show_main_menu():
         clear_console()
         terminal_width, terminal_height = get_terminal_size()
         # Calcula cuántas opciones caben en la ventana visible (sin centrado ni título extra)
-        window_size = max(
-            1, terminal_height - 15
-        )
+        window_size = max(1, terminal_height - 15)
 
         # Ajusta window_start para mantener el selector siempre visible
         if selected_index < window_start:
@@ -241,7 +245,9 @@ def show_main_menu():
                         else "0"
                     )
                 else:
-                    ws_warning("[MENU]", "Option not available. Please select another option.")
+                    ws_warning(
+                        "[MENU]", "Option not available. Please select another option."
+                    )
                     time.sleep(1)
             elif key == "esc":
                 ws_info("[MENU]", "Exiting...")
@@ -265,7 +271,10 @@ def handle_choice(choice):
     elif choice == "2":
         if not npms.check_npm_install():
             npmh.ensure_npm_compose_file()
-            ws_info("[MENU]", "NPM installation initiated. Please start NPM with 'docker-compose up -d' in the ./npm directory.")
+            ws_info(
+                "[MENU]",
+                "NPM installation initiated. Please start NPM with 'docker-compose up -d' in the ./npm directory.",
+            )
             du.check_and_start_npm()
             time.sleep(5)
             npmh.stop_npm()
@@ -276,23 +285,11 @@ def handle_choice(choice):
 
     elif choice == "3":
         if npm_available:
-            ws_info("[MENU]", "Showing existing streams...")
-            sh.show_streams()
+            stream_menu_manager.stream_menu_manager()
         else:
             ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
-    elif choice == "4":
-        if npm_available:
-            ps.add_manual_stream()
-        else:
-            ws_error("[MENU]", "NPM is not available. Please start NPM first.")
-            input("\nPress Enter to continue...")
-    elif choice == "5":
-        if npm_available:
-            sc.clear_all_streams()
-        else:
-            ws_error("[MENU]", "NPM is not available. Please start NPM first.")
-            input("\nPress Enter to continue...")
+    # Opción 5 ahora es Administrar Streams, ya movida
     elif choice == "6":
         if npm_available:
             # Set environment variable to indicate running from panel
@@ -305,7 +302,10 @@ def handle_choice(choice):
         if ws_uris_available:
             ws_client.start_ws_client()
         else:
-            ws_error("[MENU]", "No WebSocket URIs defined. Please configure WebSocket URIs first.")
+            ws_error(
+                "[MENU]",
+                "No WebSocket URIs defined. Please configure WebSocket URIs first.",
+            )
             input("\nPress Enter to continue...")
     elif choice == "8":
         delete_npm()
@@ -349,15 +349,26 @@ def delete_npm():
     """
     npm_dir = config.NGINX_BASE_DIR
     # se imprime el directorio de Nginx Proxy Manager
-    ws_info("[MENU]", f"[bold cyan]Nginx Proxy Manager directory: {npm_dir}[/bold cyan]")
+    ws_info(
+        "[MENU]", f"[bold cyan]Nginx Proxy Manager directory: {npm_dir}[/bold cyan]"
+    )
     if os.path.exists(npm_dir):
         try:
             shutil.rmtree(npm_dir)
-            ws_info("[MENU]", "[bold green]Nginx Proxy Manager directory deleted successfully.[/bold green]")
+            ws_info(
+                "[MENU]",
+                "[bold green]Nginx Proxy Manager directory deleted successfully.[/bold green]",
+            )
         except Exception as e:
-            ws_error("[MENU]", f"[bold red]Error deleting Nginx Proxy Manager directory: {e}[/bold red]")
+            ws_error(
+                "[MENU]",
+                f"[bold red]Error deleting Nginx Proxy Manager directory: {e}[/bold red]",
+            )
     else:
-        ws_info("[MENU]", "[bold yellow]Nginx Proxy Manager directory does not exist.[/bold yellow]")
+        ws_info(
+            "[MENU]",
+            "[bold yellow]Nginx Proxy Manager directory does not exist.[/bold yellow]",
+        )
 
 
 def delete_pycache():

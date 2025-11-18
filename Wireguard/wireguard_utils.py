@@ -16,8 +16,10 @@ from Streams import stream_creation_db as stream_db
 from npm import npm_handler as npm
 from Wireguard import wireguard_tools as wg_tools
 from UI.console_handler import ws_info, ws_error, ws_warning
+
 # This module provides utility functions for managing WireGuard streams and resolving port conflicts.
 # It interacts with the database, WireGuard interface, and NPM (Nginx Proxy Manager) to automate stream creation and updates.
+
 
 def get_peer_ip_for_client():
     """
@@ -52,7 +54,7 @@ def get_peer_ip_for_client():
                     result = subprocess.run(
                         ["ping", param, "1", "-W", "1", ip],
                         stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
+                        stderr=subprocess.DEVNULL,
                     )
                     if result.returncode == 0:
                         return ip
@@ -65,6 +67,7 @@ def get_peer_ip_for_client():
         ws_warning("[WS_CLIENT]", f"Error finding WireGuard peer: {e}")
         return None
 
+
 def find_existing_port_for_wg_peer(ip, port, proto):
     """
     Search if there is already a stream for the same port and protocol but with a different (non-WG) IP.
@@ -76,7 +79,7 @@ def find_existing_port_for_wg_peer(ip, port, proto):
         # Search for a stream with the same port and protocol, but with a different IP than the WG peer
         cur.execute(
             "SELECT forwarding_host FROM stream WHERE incoming_port=? AND ((tcp_forwarding=1 AND ?='tcp') OR (udp_forwarding=1 AND ?='udp')) AND forwarding_host!=? AND is_deleted=0",
-            (port, proto, proto, ip)
+            (port, proto, proto, ip),
         )
         row = cur.fetchone()
         if row:
@@ -84,9 +87,10 @@ def find_existing_port_for_wg_peer(ip, port, proto):
     except Exception:
         pass
     finally:
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()
     return None
+
 
 async def create_wg_conflict_resolution_streams(wg_streams):
     """
@@ -101,7 +105,10 @@ async def create_wg_conflict_resolution_streams(wg_streams):
 
         for incoming_port, protocol, server_ip, forwarding_port in wg_streams:
             # Create stream: incoming alternative_port → server_ip:alternative_port
-            ws_info("[WS_CLIENT]", f"Creating WG stream: incoming port {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}")
+            ws_info(
+                "[WS_CLIENT]",
+                f"Creating WG stream: incoming port {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}",
+            )
 
             # Check if a stream already exists for the incoming port
             conn = sqlite3.connect(cfg.SQLITE_DB_PATH)
@@ -109,28 +116,42 @@ async def create_wg_conflict_resolution_streams(wg_streams):
                 cur = conn.cursor()
                 cur.execute(
                     "SELECT id, forwarding_host, forwarding_port FROM stream WHERE incoming_port=? AND ((tcp_forwarding=1 AND ?='tcp') OR (udp_forwarding=1 AND ?='udp')) AND is_deleted=0",
-                    (incoming_port, protocol, protocol)
+                    (incoming_port, protocol, protocol),
                 )
                 existing = cur.fetchone()
 
                 if existing:
                     stream_id, current_host, current_port = existing
-                    ws_warning("[WS_CLIENT]", f"Stream already exists for port {incoming_port} ({protocol}): {current_host}:{current_port}")
+                    ws_warning(
+                        "[WS_CLIENT]",
+                        f"Stream already exists for port {incoming_port} ({protocol}): {current_host}:{current_port}",
+                    )
 
                     # Only update if it's pointing to a different server or port
                     if current_host != server_ip or current_port != forwarding_port:
                         cur.execute(
                             "UPDATE stream SET forwarding_host=?, forwarding_port=?, modified_on=datetime('now') WHERE id=?",
-                            (server_ip, forwarding_port, stream_id)
+                            (server_ip, forwarding_port, stream_id),
                         )
                         conn.commit()
-                        ws_info("[WS_CLIENT]", f"Updated existing stream {stream_id} for port {incoming_port} to forward to {server_ip}:{forwarding_port}")
+                        ws_info(
+                            "[WS_CLIENT]",
+                            f"Updated existing stream {stream_id} for port {incoming_port} to forward to {server_ip}:{forwarding_port}",
+                        )
                     else:
-                        ws_info("[WS_CLIENT]", f"Stream {stream_id} for port {incoming_port} already correctly configured")
+                        ws_info(
+                            "[WS_CLIENT]",
+                            f"Stream {stream_id} for port {incoming_port} already correctly configured",
+                        )
                 else:
                     # Create new stream entry for the incoming port
-                    new_entries.append((incoming_port, protocol, server_ip, forwarding_port))
-                    ws_info("[WS_CLIENT]", f"Queued new stream: {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}")
+                    new_entries.append(
+                        (incoming_port, protocol, server_ip, forwarding_port)
+                    )
+                    ws_info(
+                        "[WS_CLIENT]",
+                        f"Queued new stream: {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}",
+                    )
             finally:
                 conn.close()
 
@@ -140,12 +161,21 @@ async def create_wg_conflict_resolution_streams(wg_streams):
             sc.add_streams_sqlite_with_ip_extended(new_entries)
 
         # Sync configuration and reload NPM
-        if new_entries or any(existing for incoming_port, protocol, server_ip, forwarding_port in wg_streams):
+        if new_entries or any(
+            existing
+            for incoming_port, protocol, server_ip, forwarding_port in wg_streams
+        ):
             stream_db.sync_streams_conf_with_sqlite()
             npm.reload_npm()
-            ws_info("[WS_CLIENT]", f"Successfully created/updated {len(new_entries)} WireGuard streams")
+            ws_info(
+                "[WS_CLIENT]",
+                f"Successfully created/updated {len(new_entries)} WireGuard streams",
+            )
         else:
-            ws_info("[WS_CLIENT]", f"No new WireGuard streams needed, all ports already configured")
+            ws_info(
+                "[WS_CLIENT]",
+                f"No new WireGuard streams needed, all ports already configured",
+            )
 
     except Exception as e:
         ws_error("[WS_CLIENT]", f"Error creating WG streams: {e}")

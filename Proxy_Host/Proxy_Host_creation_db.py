@@ -7,15 +7,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from UI.console_handler import ws_info, ws_error, ws_warning
 
+
 def generate_proxy_host_conf(
     proxy_id,
     domains,
     destination_ip,
     destination_port,
-    proxy_type="https",  
-    listen_port=None,    
+    proxy_type="https",
+    listen_port=None,
     ssl_cert_path="/etc/letsencrypt/live/npm-1/fullchain.pem",
-    ssl_key_path="/etc/letsencrypt/live/npm-1/privkey.pem"
+    ssl_key_path="/etc/letsencrypt/live/npm-1/privkey.pem",
 ):
 
     domain_line = ", ".join(domains)
@@ -31,7 +32,7 @@ def generate_proxy_host_conf(
     conf_lines.append("")
     conf_lines.append("server {")
     conf_lines.append("  set $forward_scheme https;")
-    conf_lines.append(f"  set $server         \"{destination_ip}\";")
+    conf_lines.append(f'  set $server         "{destination_ip}";')
     conf_lines.append(f"  set $port           {destination_port};")
     conf_lines.append("")
 
@@ -63,7 +64,9 @@ def generate_proxy_host_conf(
         conf_lines.append("  include conf.d/include/force-ssl.conf;")
         conf_lines.append("")
 
-    conf_lines.append(f"  access_log /data/logs/proxy-host-{proxy_id}_access.log proxy;")
+    conf_lines.append(
+        f"  access_log /data/logs/proxy-host-{proxy_id}_access.log proxy;"
+    )
     conf_lines.append(f"  error_log /data/logs/proxy-host-{proxy_id}_error.log warn;")
     conf_lines.append("")
     conf_lines.append("  proxy_set_header X-Real-IP $remote_addr;")
@@ -80,6 +83,7 @@ def generate_proxy_host_conf(
     conf_lines.append("}")
     conf_lines.append("")
     return "\n".join(conf_lines)
+
 
 def add_proxy_host_sqlite(
     domains,
@@ -98,7 +102,7 @@ def add_proxy_host_sqlite(
     locations=None,
     hsts_enabled=0,
     hsts_subdomains=0,
-    access_list_id=0
+    access_list_id=0,
 ):
 
     if not os.path.exists(cfg.SQLITE_DB_PATH):
@@ -109,11 +113,12 @@ def add_proxy_host_sqlite(
     try:
         cur = conn.cursor()
 
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='proxy_host';")
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='proxy_host';"
+        )
         if not cur.fetchone():
             ws_error("[WS]", "La tabla 'proxy_host' no existe en la base de datos.")
             return False
-
 
         cur.execute("SELECT id FROM user ORDER BY id LIMIT 1")
         user_row = cur.fetchone()
@@ -126,7 +131,8 @@ def add_proxy_host_sqlite(
         meta_json = json.dumps(meta) if meta else json.dumps({})
         locations_json = json.dumps(locations) if locations else None
 
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO proxy_host (
                 created_on, modified_on, owner_user_id, is_deleted,
                 domain_names, forward_host, forward_port, access_list_id,
@@ -140,26 +146,28 @@ def add_proxy_host_sqlite(
                 ?, ?, ?, ?,
                 ?, ?, ?, ?, ?
             )
-        """, (
-            owner_user_id,
-            domain_names_json,
-            forward_host,
-            forward_port,
-            access_list_id,
-            certificate_id,
-            ssl_forced,
-            caching_enabled,
-            block_exploits,
-            advanced_config,
-            meta_json,
-            allow_websocket_upgrade,
-            http2_support,
-            forward_scheme,
-            enabled,
-            locations_json,
-            hsts_enabled,
-            hsts_subdomains
-        ))
+        """,
+            (
+                owner_user_id,
+                domain_names_json,
+                forward_host,
+                forward_port,
+                access_list_id,
+                certificate_id,
+                ssl_forced,
+                caching_enabled,
+                block_exploits,
+                advanced_config,
+                meta_json,
+                allow_websocket_upgrade,
+                http2_support,
+                forward_scheme,
+                enabled,
+                locations_json,
+                hsts_enabled,
+                hsts_subdomains,
+            ),
+        )
         conn.commit()
         ws_info("[WS]", f"Proxy Host creado para dominios: {', '.join(domains)}")
         return True
@@ -168,5 +176,6 @@ def add_proxy_host_sqlite(
         return False
     finally:
         conn.close()
+
 
 # No changes needed for menu integration.

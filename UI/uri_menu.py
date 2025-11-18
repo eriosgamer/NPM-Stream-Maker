@@ -14,7 +14,7 @@ from Config import ws_config_handler as WebSocketConfig
 from UI.console_handler import ws_error, ws_info, ws_warning
 
 # Add platform-specific imports for key handling
-if os.name == 'nt':  # Windows
+if os.name == "nt":  # Windows
     import msvcrt
 else:  # Unix/Linux/macOS
     import termios
@@ -23,50 +23,53 @@ else:  # Unix/Linux/macOS
 # Initialize the Rich console for pretty terminal output
 console = Console()
 
+
 def clear_console():
     """
     Clear the console screen.
     """
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system("cls" if os.name == "nt" else "clear")
+
 
 def get_key():
     """
     Get a single key press from the user in a cross-platform way.
     """
-    if os.name == 'nt':  # Windows
+    if os.name == "nt":  # Windows
         key = msvcrt.getch()
-        if key == b'\xe0':  # Special key prefix on Windows
+        if key == b"\xe0":  # Special key prefix on Windows
             key = msvcrt.getch()
-            if key == b'H':  # Up arrow
-                return 'up'
-            elif key == b'P':  # Down arrow
-                return 'down'
-        elif key == b'\r':  # Enter key
-            return 'enter'
-        elif key == b'\x1b':  # Escape key
-            return 'esc'
+            if key == b"H":  # Up arrow
+                return "up"
+            elif key == b"P":  # Down arrow
+                return "down"
+        elif key == b"\r":  # Enter key
+            return "enter"
+        elif key == b"\x1b":  # Escape key
+            return "esc"
     else:  # Unix/Linux/macOS
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
             tty.setraw(sys.stdin.fileno())
             key = sys.stdin.read(1)
-            if key == '\x1b':  # Escape sequence
+            if key == "\x1b":  # Escape sequence
                 key += sys.stdin.read(2)
-                if key == '\x1b[A':  # Up arrow
-                    return 'up'
-                elif key == '\x1b[B':  # Down arrow
-                    return 'down'
+                if key == "\x1b[A":  # Up arrow
+                    return "up"
+                elif key == "\x1b[B":  # Down arrow
+                    return "down"
                 elif len(key) == 1:  # Just escape
-                    return 'esc'
-            elif key == '\r' or key == '\n':  # Enter key
-                return 'enter'
-            elif key == '\x1b':  # Escape key
-                return 'esc'
+                    return "esc"
+            elif key == "\r" or key == "\n":  # Enter key
+                return "enter"
+            elif key == "\x1b":  # Escape key
+                return "esc"
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    
+
     return None
+
 
 def get_terminal_size():
     """
@@ -74,17 +77,16 @@ def get_terminal_size():
     """
     return console.size
 
+
 def create_uri_header():
     """
     Create the header panel for URI menu.
     """
-    header_text = Text("Edit WebSocket Server URIs", style="bold blue", justify="center")
-    return Panel(
-        Align.center(header_text),
-        style="bold blue",
-        padding=(0, 2),
-        height=3
+    header_text = Text(
+        "Edit WebSocket Server URIs", style="bold blue", justify="center"
     )
+    return Panel(Align.center(header_text), style="bold blue", padding=(0, 2), height=3)
+
 
 def create_uri_footer():
     """
@@ -92,17 +94,21 @@ def create_uri_footer():
     """
     help_text = Text.assemble(
         ("Navigation: ", "bold cyan"),
-        ("↑↓ ", "bold yellow"), ("Move  ", "white"),
-        ("Enter ", "bold yellow"), ("Select  ", "white"),
-        ("Esc ", "bold yellow"), ("Cancel", "white")
+        ("↑↓ ", "bold yellow"),
+        ("Move  ", "white"),
+        ("Enter ", "bold yellow"),
+        ("Select  ", "white"),
+        ("Esc ", "bold yellow"),
+        ("Cancel", "white"),
     )
     return Panel(
         Align.center(help_text),
         title="[bold cyan]Controls[/bold cyan]",
         style="cyan",
         padding=(0, 2),
-        height=3
+        height=3,
     )
+
 
 def create_uri_table_content(uris, tokens, terminal_width, terminal_height):
     """
@@ -110,48 +116,57 @@ def create_uri_table_content(uris, tokens, terminal_width, terminal_height):
     """
     # Create table with optimized column widths
     table = Table(title="Current WebSocket URIs", show_lines=True, expand=False)
-    
+
     # Calculate optimal column widths based on terminal size
     available_width = terminal_width - 10  # Account for padding and borders
     index_width = 6
     token_width = 10
-    uri_width = max(20, available_width - index_width - token_width - 6)  # 6 for separators
-    
+    uri_width = max(
+        20, available_width - index_width - token_width - 6
+    )  # 6 for separators
+
     table.add_column("Index", style="cyan", justify="center", width=index_width)
     table.add_column("URI", style="magenta", width=uri_width)
     table.add_column("Token", style="yellow", width=token_width)
 
     if uris:
         # Limit the number of rows shown to prevent overflow
-        max_rows = max(3, (terminal_height - 12) // 3)  # Reserve space for header, footer, and menu
+        max_rows = max(
+            3, (terminal_height - 12) // 3
+        )  # Reserve space for header, footer, and menu
         visible_uris = uris[:max_rows]
         visible_tokens = tokens[:max_rows]
-        
+
         for idx, (uri, token) in enumerate(zip(visible_uris, visible_tokens), 1):
             token_display = token[:8] + "..." if len(token) > 8 else token
             # Truncate URI to fit column width
             if len(uri) > uri_width - 3:
-                uri_display = uri[:uri_width-6] + "..."
+                uri_display = uri[: uri_width - 6] + "..."
             else:
                 uri_display = uri
             table.add_row(str(idx), uri_display, token_display)
-        
+
         # Show indicator if there are more URIs
         if len(uris) > max_rows:
-            table.add_row("...", f"[dim]+{len(uris) - max_rows} more[/dim]", "[dim]...[/dim]")
+            table.add_row(
+                "...", f"[dim]+{len(uris) - max_rows} more[/dim]", "[dim]...[/dim]"
+            )
     else:
         table.add_row("--", "[dim]No URIs configured[/dim]", "[dim]--[/dim]")
-    
+
     # Mostrar la tabla en consola y guardar en log si se usa en logging
     from UI.console_handler import console_handler
     import io
+
     log_buffer = io.StringIO()
     from rich.console import Console as RichConsole
+
     log_console = RichConsole(file=log_buffer, force_terminal=True, color_system=None)
     log_console.print(table)
     table_text = log_buffer.getvalue()
     console_handler.console.print(table)
     return table_text
+
 
 def create_uri_menu_content(menu_options, selected_index, uris_available):
     """
@@ -160,25 +175,32 @@ def create_uri_menu_content(menu_options, selected_index, uris_available):
     content = []
     content.append("[bold cyan]Menu Options:[/bold cyan]")
     content.append("")  # Empty line for spacing
-    
+
     for i, (option_text, action) in enumerate(menu_options):
         prefix = "► " if i == selected_index else "  "
-        
+
         # Check if option should be disabled
         disabled = action in ["edit", "remove"] and not uris_available
-        
+
         if disabled:
             if i == selected_index:
-                content.append(f"[bold yellow]{prefix}[/bold yellow][bold red]{option_text}[/bold red] [dim red](No URIs)[/dim red]")
+                content.append(
+                    f"[bold yellow]{prefix}[/bold yellow][bold red]{option_text}[/bold red] [dim red](No URIs)[/dim red]"
+                )
             else:
-                content.append(f"[red]{prefix}{option_text}[/red] [dim red](No URIs)[/dim red]")
+                content.append(
+                    f"[red]{prefix}{option_text}[/red] [dim red](No URIs)[/dim red]"
+                )
         else:
             if i == selected_index:
-                content.append(f"[bold yellow]{prefix}[/bold yellow][bold green]{option_text}[/bold green]")
+                content.append(
+                    f"[bold yellow]{prefix}[/bold yellow][bold green]{option_text}[/bold green]"
+                )
             else:
                 content.append(f"[green]{prefix}{option_text}[/green]")
-    
+
     return "\n".join(content)
+
 
 def edit_ws_uris_menu(console):
     """
@@ -193,17 +215,17 @@ def edit_ws_uris_menu(console):
         ("Edit existing URI", "edit"),
         ("Remove URI", "remove"),
         ("Save changes", "save"),
-        ("Cancel", "cancel")
+        ("Cancel", "cancel"),
     ]
-    
+
     selected_index = 0
 
     while True:
         clear_console()
-        
+
         # Get current terminal size
         terminal_width, terminal_height = get_terminal_size()
-        
+
         # Adjust layout based on terminal height
         if terminal_height < 20:
             # Small terminal - use single column layout
@@ -211,67 +233,80 @@ def edit_ws_uris_menu(console):
             layout.split_column(
                 Layout(create_uri_header(), name="header", size=3),
                 Layout(name="main"),
-                Layout(create_uri_footer(), name="footer", size=3)
+                Layout(create_uri_footer(), name="footer", size=3),
             )
-            
+
             # Create combined content for small screens
-            table_content = create_uri_table_content(uris, tokens, terminal_width, terminal_height)
-            menu_content = create_uri_menu_content(menu_options, selected_index, len(uris) > 0)
-            
+            table_content = create_uri_table_content(
+                uris, tokens, terminal_width, terminal_height
+            )
+            menu_content = create_uri_menu_content(
+                menu_options, selected_index, len(uris) > 0
+            )
+
             combined_content = f"{table_content}\n\n{menu_content}"
-            layout["main"].update(Panel(combined_content, style="white", padding=(0, 1)))
+            layout["main"].update(
+                Panel(combined_content, style="white", padding=(0, 1))
+            )
         else:
             # Normal terminal - use split layout
             layout = Layout()
             layout.split_column(
                 Layout(create_uri_header(), name="header", size=3),
                 Layout(name="main"),
-                Layout(create_uri_footer(), name="footer", size=3)
+                Layout(create_uri_footer(), name="footer", size=3),
             )
-            
+
             # Split main area with better proportions
             available_height = terminal_height - 6  # Header + footer
             table_height = min(12, available_height // 2 + 2)  # Max 12 lines for table
             menu_height = available_height - table_height
-            
+
             layout["main"].split_column(
                 Layout(name="table", size=table_height),
-                Layout(name="menu", size=menu_height)
+                Layout(name="menu", size=menu_height),
             )
-            
+
             # Create and add content
-            table_content = create_uri_table_content(uris, tokens, terminal_width, terminal_height)
-            menu_content = create_uri_menu_content(menu_options, selected_index, len(uris) > 0)
-            
+            table_content = create_uri_table_content(
+                uris, tokens, terminal_width, terminal_height
+            )
+            menu_content = create_uri_menu_content(
+                menu_options, selected_index, len(uris) > 0
+            )
+
             layout["table"].update(Panel(table_content, style="white", padding=(0, 1)))
             layout["menu"].update(Panel(menu_content, style="white", padding=(0, 1)))
-        
+
         # Print the layout without extra newlines
         with console.capture() as capture:
             console.print(layout, end="")
-        
+
         # Print captured content and move cursor to avoid layout shifting
         print(capture.get(), end="", flush=True)
-        
+
         # Handle keyboard input
         try:
             key = get_key()
-            if key == 'up':
+            if key == "up":
                 selected_index = (selected_index - 1) % len(menu_options)
-            elif key == 'down':
+            elif key == "down":
                 selected_index = (selected_index + 1) % len(menu_options)
-            elif key == 'enter':
+            elif key == "enter":
                 action = menu_options[selected_index][1]
-                
+
                 # Check if action is disabled
                 if action in ["edit", "remove"] and not uris:
                     continue
-                
+
                 # Execute the selected action (clear console for forms)
                 clear_console()
-                
+
                 if action == "add":
-                    ws_info("[WS_CLIENT]", "[bold cyan]Adding new WebSocket URI[/bold cyan]\n")
+                    ws_info(
+                        "[WS_CLIENT]",
+                        "[bold cyan]Adding new WebSocket URI[/bold cyan]\n",
+                    )
                     new_uri = Prompt.ask("[bold cyan]Enter new WebSocket URI")
                     new_token = Prompt.ask("[bold cyan]Enter token for this URI")
                     if new_uri:
@@ -281,20 +316,35 @@ def edit_ws_uris_menu(console):
                     input("\nPress Enter to continue...")
 
                 elif action == "edit":
-                    ws_info("[WS_CLIENT]", "[bold cyan]Editing existing URI[/bold cyan]\n")
+                    ws_info(
+                        "[WS_CLIENT]", "[bold cyan]Editing existing URI[/bold cyan]\n"
+                    )
 
                     # Show current URIs in a compact format
                     for idx, uri in enumerate(uris, 1):
                         display_uri = uri[:50] + "..." if len(uri) > 50 else uri
                         ws_info("[WS_CLIENT]", f"[cyan]{idx}.[/cyan] {display_uri}")
-                    
+
                     try:
-                        idx = int(Prompt.ask("[bold cyan]Enter index to edit", choices=[str(i) for i in range(1, len(uris)+1)])) - 1
+                        idx = (
+                            int(
+                                Prompt.ask(
+                                    "[bold cyan]Enter index to edit",
+                                    choices=[str(i) for i in range(1, len(uris) + 1)],
+                                )
+                            )
+                            - 1
+                        )
                         new_uri = Prompt.ask(f"[bold cyan]Edit URI", default=uris[idx])
-                        new_token = Prompt.ask(f"[bold cyan]Edit token", default=tokens[idx])
+                        new_token = Prompt.ask(
+                            f"[bold cyan]Edit token", default=tokens[idx]
+                        )
                         uris[idx] = new_uri.strip()
                         tokens[idx] = new_token.strip()
-                        ws_info("[WS_CLIENT]", f"[green]Updated URI at index {idx + 1}[/green]")
+                        ws_info(
+                            "[WS_CLIENT]",
+                            f"[green]Updated URI at index {idx + 1}[/green]",
+                        )
                     except (ValueError, IndexError):
                         ws_error("[WS_CLIENT]", "[red]Invalid selection[/red]")
                     input("\nPress Enter to continue...")
@@ -308,11 +358,25 @@ def edit_ws_uris_menu(console):
                         ws_info("[WS_CLIENT]", f"[cyan]{idx}.[/cyan] {display_uri}")
 
                     try:
-                        idx = int(Prompt.ask("[bold cyan]Enter index to remove", choices=[str(i) for i in range(1, len(uris)+1)])) - 1
+                        idx = (
+                            int(
+                                Prompt.ask(
+                                    "[bold cyan]Enter index to remove",
+                                    choices=[str(i) for i in range(1, len(uris) + 1)],
+                                )
+                            )
+                            - 1
+                        )
                         removed_uri = uris.pop(idx)
                         removed_token = tokens.pop(idx)
-                        display_removed = removed_uri[:50] + "..." if len(removed_uri) > 50 else removed_uri
-                        ws_info("[WS_CLIENT]", f"[green]Removed: {display_removed}[/green]")
+                        display_removed = (
+                            removed_uri[:50] + "..."
+                            if len(removed_uri) > 50
+                            else removed_uri
+                        )
+                        ws_info(
+                            "[WS_CLIENT]", f"[green]Removed: {display_removed}[/green]"
+                        )
                     except (ValueError, IndexError):
                         ws_error("[WS_CLIENT]", "[red]Invalid selection[/red]")
                     input("\nPress Enter to continue...")
@@ -330,11 +394,17 @@ def edit_ws_uris_menu(console):
                     # También recargar en websocket_config si es necesario
                     try:
                         import WebSockets.websocket_config as ws_config
-                        ws_config.uris, _, ws_config.uri = WebSocketConfig.get_ws_config()
+
+                        ws_config.uris, _, ws_config.uri = (
+                            WebSocketConfig.get_ws_config()
+                        )
                         ws_config.uri = ws_config.uris[0] if ws_config.uris else None
                     except Exception:
                         pass
-                    ws_info("[WS_CLIENT]", "[green]URIs and tokens saved to .env and recargados en memoria[/green]")
+                    ws_info(
+                        "[WS_CLIENT]",
+                        "[green]URIs and tokens saved to .env and recargados en memoria[/green]",
+                    )
                     input("\nPress Enter to return to main menu...")
                     return
 
@@ -342,13 +412,13 @@ def edit_ws_uris_menu(console):
                     ws_info("[WS_CLIENT]", "[yellow]No changes saved.[/yellow]")
                     input("\nPress Enter to return to main menu...")
                     return
-                    
-            elif key == 'esc':
+
+            elif key == "esc":
                 clear_console()
                 ws_info("[WS_CLIENT]", "[yellow]No changes saved.[/yellow]")
                 input("\nPress Enter to return to main menu...")
                 return
-                
+
         except KeyboardInterrupt:
             ws_info("[WS_CLIENT]", "\n[bold yellow]Exiting...[/bold yellow]")
             return

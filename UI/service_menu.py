@@ -59,9 +59,7 @@ def get_terminal_size():
 
 
 def create_service_header():
-    header_text = Text(
-        "Configur for AutoStart", style="bold blue", justify="center"
-    )
+    header_text = Text("Configur for AutoStart", style="bold blue", justify="center")
     return Panel(Align.center(header_text), style="bold blue", padding=(0, 2), height=3)
 
 
@@ -109,9 +107,7 @@ def manage_auto_start_service():
         menu_options.append(("Remove Systemd service", "remove_systemd"))
     if is_windows:
         menu_options.append(("Create Autostart entry (Windows)", "create_windows"))
-        menu_options.append(
-            ("Remove Autostart entry (Windows)", "remove_windows")
-        )
+        menu_options.append(("Remove Autostart entry (Windows)", "remove_windows"))
     menu_options.append(("Back to main menu", "back"))
 
     selected_index = 0
@@ -241,7 +237,8 @@ StandardError=journal
 WantedBy=multi-user.target
 """
     import shutil
-    is_root = hasattr(os, 'geteuid') and os.geteuid() == 0
+
+    is_root = hasattr(os, "geteuid") and os.geteuid() == 0
     local_path = os.path.abspath(service_name)
     systemd_path = f"/etc/systemd/system/{service_name}"
     try:
@@ -252,20 +249,32 @@ WantedBy=multi-user.target
             shutil.move(local_path, systemd_path)
             ws_info("[SERVICE MENU]", f"[green]Moved to {systemd_path}.[/green]")
             os.system("systemctl daemon-reload")
-            ws_info("[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]")
+            ws_info(
+                "[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]"
+            )
             os.system(f"systemctl enable --now {service_name}")
-            ws_info("[SERVICE MENU]", f"[green]Service {service_name} enabled and started.[/green]")
+            ws_info(
+                "[SERVICE MENU]",
+                f"[green]Service {service_name} enabled and started.[/green]",
+            )
         else:
-            ws_warning("[SERVICE MENU]", f"[yellow]You do not have root permissions. Manually copy to /etc/systemd/system/ and run systemctl daemon-reload && systemctl enable --now {service_name}.[/yellow]")
+            ws_warning(
+                "[SERVICE MENU]",
+                f"[yellow]You do not have root permissions. Manually copy to /etc/systemd/system/ and run systemctl daemon-reload && systemctl enable --now {service_name}.[/yellow]",
+            )
     except Exception as e:
         ws_error("[SERVICE MENU]", f"[red]Error creating/moving file: {e}[/red]")
 
 
 def remove_systemd_service():
     import shutil
-    tipos = [("WebSocket Server", "npm-ws-server.service"), ("WebSocket Client", "npm-ws-client.service")]
+
+    tipos = [
+        ("WebSocket Server", "npm-ws-server.service"),
+        ("WebSocket Client", "npm-ws-client.service"),
+    ]
     selected = 0
-    is_root = hasattr(os, 'geteuid') and os.geteuid() == 0
+    is_root = hasattr(os, "geteuid") and os.geteuid() == 0
     while True:
         clear_console()
         print("\nSelect the Systemd service to remove:\n")
@@ -274,14 +283,14 @@ def remove_systemd_service():
             print(f"{prefix}{nombre} ({fname})")
         print("\nUse ↑↓ and Enter to select, Esc to cancel.")
         key = get_key()
-        if key == 'up':
+        if key == "up":
             selected = (selected - 1) % len(tipos)
-        elif key == 'down':
+        elif key == "down":
             selected = (selected + 1) % len(tipos)
-        elif key == 'enter':
+        elif key == "enter":
             service_name = tipos[selected][1]
             break
-        elif key == 'esc':
+        elif key == "esc":
             ws_info("[SERVICE MENU]", "[yellow]Operation canceled.[/yellow]")
             return
 
@@ -289,14 +298,24 @@ def remove_systemd_service():
     try:
         if is_root:
             os.system(f"systemctl disable --now {service_name}")
-            ws_info("[SERVICE MENU]", f"[green]Service {service_name} disabled and stopped.[/green]")
+            ws_info(
+                "[SERVICE MENU]",
+                f"[green]Service {service_name} disabled and stopped.[/green]",
+            )
             if os.path.exists(systemd_path):
                 os.remove(systemd_path)
-                ws_info("[SERVICE MENU]", f"[green]File {systemd_path} removed.[/green]")
+                ws_info(
+                    "[SERVICE MENU]", f"[green]File {systemd_path} removed.[/green]"
+                )
             os.system("systemctl daemon-reload")
-            ws_info("[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]")
+            ws_info(
+                "[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]"
+            )
         else:
-            ws_warning("[SERVICE MENU]", f"[yellow]You do not have root permissions. Manually remove {systemd_path} and run systemctl disable --now {service_name} && systemctl daemon-reload.[/yellow]")
+            ws_warning(
+                "[SERVICE MENU]",
+                f"[yellow]You do not have root permissions. Manually remove {systemd_path} and run systemctl disable --now {service_name} && systemctl daemon-reload.[/yellow]",
+            )
     except Exception as e:
         ws_error("[SERVICE MENU]", f"[red]Error removing/disabling service: {e}[/red]")
 

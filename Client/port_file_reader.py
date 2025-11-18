@@ -13,8 +13,9 @@ from Config import config as cfg
 
 # Compile a regex to find lines with keywords (from config) and port numbers
 PORT_REGEX = re.compile(
-    r'(?i)\b(' + '|'.join(cfg.PORT_KEYWORDS) + r')\b[^0-9]{0,10}([0-9]{2,5})'
+    r"(?i)\b(" + "|".join(cfg.PORT_KEYWORDS) + r")\b[^0-9]{0,10}([0-9]{2,5})"
 )
+
 
 def search_ports_in_file(filepath):
     """
@@ -23,13 +24,14 @@ def search_ports_in_file(filepath):
     """
     # Find ports in file by keywords
     ports = defaultdict(set)
-    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
         for line in f:
             for match in PORT_REGEX.finditer(line):
                 key = match.group(1).lower()
                 port = int(match.group(2))
                 ports[key].add(port)
     return ports
+
 
 def group_ranges(ports):
     """
@@ -50,6 +52,7 @@ def group_ranges(ports):
             start = end = p
     ranges.append((start, end))
     return ranges
+
 
 def expand_instances_per_range(ranges, max_instances=5, use_alternative_ranges=True):
     """
@@ -81,22 +84,24 @@ def expand_instances_per_range(ranges, max_instances=5, use_alternative_ranges=T
                     ports.add(alt_incoming)
     return ports
 
+
 def expand_ports(line):
     """
     Converts a line like '80,443,1000:1005' into a set of integers.
     Supports ranges and comma-separated lists.
     """
     ports = set()
-    parts = re.split(r'[,\n]+', line)
+    parts = re.split(r"[,\n]+", line)
     for part in parts:
         part = part.strip()
-        if ':' in part:
-            start, end = part.split(':', 1)
+        if ":" in part:
+            start, end = part.split(":", 1)
             if start.isdigit() and end.isdigit():
                 ports.update(range(int(start), int(end) + 1))
         elif part.isdigit():
             ports.add(int(part))
     return ports
+
 
 def load_ports(path):
     """
@@ -106,14 +111,15 @@ def load_ports(path):
     if not os.path.exists(path):
         ws_error("[WS_CLIENT]", f"Ports file not found: {path}")
         return set()
-    
+
     try:
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             content = f.read()
         return expand_ports(content)
     except Exception as e:
-        ws_error("[WS_CLIENT]",f"Error loading ports from {path}: {e}")
+        ws_error("[WS_CLIENT]", f"Error loading ports from {path}: {e}")
         return set()
+
 
 def expand_instances_per_port(ports, max_instances=5):
     """
@@ -128,6 +134,7 @@ def expand_instances_per_port(ports, max_instances=5):
             expanded_ports.update(block)
             used.update(block)
     return expanded_ports
+
 
 # --- Module summary ---
 # This module provides utilities for reading, parsing, and expanding port numbers from text files.

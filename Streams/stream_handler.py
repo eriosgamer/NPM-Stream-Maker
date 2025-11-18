@@ -15,6 +15,7 @@ console = Console()
 # Stream Management Functions
 # -------------------------------
 
+
 def show_streams():
     """
     Displays the list of existing streams in the database.
@@ -46,9 +47,19 @@ def show_streams():
                 table.add_column("Status", style="blue")
 
                 # Sort streams by ID to ensure consistent ordering
-                sorted_streams = sorted(streams, key=lambda x: x[0])  # x[0] is stream_id
+                sorted_streams = sorted(
+                    streams, key=lambda x: x[0]
+                )  # x[0] is stream_id
 
-                for stream_id, incoming_port, forwarding_host, forwarding_port, tcp_f, udp_f, enabled in sorted_streams:
+                for (
+                    stream_id,
+                    incoming_port,
+                    forwarding_host,
+                    forwarding_port,
+                    tcp_f,
+                    udp_f,
+                    enabled,
+                ) in sorted_streams:
                     protocols = []
                     if tcp_f:
                         protocols.append("TCP")
@@ -63,23 +74,27 @@ def show_streams():
                         str(incoming_port),
                         f"{forwarding_host}:{forwarding_port}",
                         proto_str,
-                        status
+                        status,
                     )
 
-                from UI.console_handler import console_handler
-                console_handler.console.print(table)
-                # Guardar la tabla en el log en formato legible
                 import io
+
                 log_buffer = io.StringIO()
                 from rich.console import Console as RichConsole
-                log_console = RichConsole(file=log_buffer, force_terminal=True, color_system=None)
+
+                log_console = RichConsole(
+                    file=log_buffer, force_terminal=True, color_system=None
+                )
                 log_console.print(table)
                 table_text = log_buffer.getvalue()
                 ws_info("[STREAM_MANAGER]", table_text)
                 ws_info("[STREAM_MANAGER]", f"Total streams: {len(streams)}")
             else:
                 ws_warning("[STREAM_MANAGER]", "No streams found.")
-                ws_info("[STREAM_MANAGER]", "💡 You can add streams using option 2 or start WebSocket client (option 6) to auto-discover services.")
+                ws_info(
+                    "[STREAM_MANAGER]",
+                    "💡 You can add streams using option 2 or start WebSocket client (option 6) to auto-discover services.",
+                )
         finally:
             conn.close()
 

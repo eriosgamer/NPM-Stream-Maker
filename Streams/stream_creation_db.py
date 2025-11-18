@@ -53,7 +53,9 @@ def sync_streams_conf_with_sqlite():
         return streams
 
     # Generates the NGINX configuration for a stream from the database, including access control rules
-    def generate_stream_conf_from_sqlite(stream, acl_allow_list_override=None, acl_deny_list_override=None):
+    def generate_stream_conf_from_sqlite(
+        stream, acl_allow_list_override=None, acl_deny_list_override=None
+    ):
         """
         Generates the NGINX configuration for a stream from the database, including access control rules.
         """
@@ -70,7 +72,9 @@ def sync_streams_conf_with_sqlite():
         # Parse metadata for access control
         access_list_config = {"enabled": False, "allowed_ips": [], "denied_ips": []}
         if acl_allow_list_override is not None or acl_deny_list_override is not None:
-            access_list_config["enabled"] = bool(acl_allow_list_override or acl_deny_list_override)
+            access_list_config["enabled"] = bool(
+                acl_allow_list_override or acl_deny_list_override
+            )
             access_list_config["allowed_ips"] = acl_allow_list_override or []
             access_list_config["denied_ips"] = acl_deny_list_override or []
         elif meta:
@@ -197,6 +201,7 @@ def sync_streams_conf_with_sqlite():
             )
         # Imprimir la tabla en consola
         from UI.console_handler import console_handler
+
         console_handler.console.print(table)
         # Guardar la tabla como string en el log
         ws_info("[STREAM_MANAGER]", str(table))

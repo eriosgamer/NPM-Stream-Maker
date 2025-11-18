@@ -62,7 +62,10 @@ def main():
             return
         elif args.ws_server_only:
             # Run only the WebSocket server script
-            ws_info("WS_SERVER", f"Starting WebSocket server on port {args.ws_server_port}...")
+            ws_info(
+                "WS_SERVER",
+                f"Starting WebSocket server on port {args.ws_server_port}...",
+            )
             os.environ["RUN_FROM_PANEL"] = "1"  # Set required environment variable
             start_ws_server()
             return

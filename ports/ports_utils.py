@@ -24,6 +24,7 @@ conflict resolution files, and saving WebSocket port assignments.
 Intended for use in the NPM Stream Maker project.
 """
 
+
 def clear_conflict_resolution_files():
     """
     Removes all conflict resolution files when cleaning streams.
@@ -38,9 +39,12 @@ def clear_conflict_resolution_files():
             ws_warning("[WS]", f"Could not clear {file_path}: {e}")
 
     if cleared_files:
-        ws_info("[WS]", f"🧹 Cleared conflict resolution files: {', '.join(cleared_files)}")
+        ws_info(
+            "[WS]", f"🧹 Cleared conflict resolution files: {', '.join(cleared_files)}"
+        )
     else:
         ws_info("[WS]", "🧹 No conflict resolution files to clear")
+
 
 def is_port_in_use(port):
     """
@@ -49,10 +53,11 @@ def is_port_in_use(port):
     """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', port))
+            s.bind(("", port))
             return False
     except OSError:
         return True
+
 
 def get_process_using_port(port):
     """
@@ -64,10 +69,13 @@ def get_process_using_port(port):
         if platform.system().lower() == "windows":
             # Windows: use netstat -ano and tasklist
             output = subprocess.check_output(
-                ["netstat", "-ano"], text=True, errors="ignore")
+                ["netstat", "-ano"], text=True, errors="ignore"
+            )
             pids = []
             for line in output.splitlines():
-                if f":{port}" in line and ("LISTENING" in line or "ESTABLISHED" in line):
+                if f":{port}" in line and (
+                    "LISTENING" in line or "ESTABLISHED" in line
+                ):
                     parts = line.split()
                     if len(parts) >= 5:
                         pid = parts[-1]
@@ -79,12 +87,13 @@ def get_process_using_port(port):
                 try:
                     task_output = subprocess.check_output(
                         ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV"],
-                        text=True, errors="ignore"
+                        text=True,
+                        errors="ignore",
                     )
-                    lines = task_output.strip().split('\n')
+                    lines = task_output.strip().split("\n")
                     if len(lines) > 1:
                         # Parse CSV format
-                        task_info = lines[1].replace('"', '').split(',')
+                        task_info = lines[1].replace('"', "").split(",")
                         if len(task_info) >= 1:
                             processes.append((pid, task_info[0]))
                         else:
@@ -98,7 +107,8 @@ def get_process_using_port(port):
             try:
                 # Try lsof first (most detailed)
                 output = subprocess.check_output(
-                    ["lsof", "-i", f":{port}"], text=True, errors="ignore")
+                    ["lsof", "-i", f":{port}"], text=True, errors="ignore"
+                )
                 for line in output.splitlines()[1:]:  # Skip header
                     parts = line.split()
                     if len(parts) >= 2:
@@ -109,12 +119,13 @@ def get_process_using_port(port):
                 # Fallback to netstat + ps
                 try:
                     output = subprocess.check_output(
-                        ["netstat", "-tlnp"], text=True, errors="ignore")
+                        ["netstat", "-tlnp"], text=True, errors="ignore"
+                    )
                     for line in output.splitlines():
                         if f":{port}" in line and "LISTEN" in line:
                             parts = line.split()
                             if len(parts) >= 6:
-                                pid = parts[6].split('/')[0]
+                                pid = parts[6].split("/")[0]
                                 command = parts[0]
                                 if pid.isdigit():
                                     processes.append((pid, command))
@@ -122,17 +133,18 @@ def get_process_using_port(port):
                     # Last resort: ss command
                     try:
                         output = subprocess.check_output(
-                            ["ss", "-tlnp"], text=True, errors="ignore")
+                            ["ss", "-tlnp"], text=True, errors="ignore"
+                        )
                         for line in output.splitlines():
                             if ":" in line and line.split()[-1] != "-":
                                 parts = line.split()
                                 if len(parts) > 0:
                                     pid_info = parts[-1]
                                     if "pid=" in pid_info:
-                                        pid = pid_info.split(
-                                            "pid=")[1].split(",")[0]
-                                        command = parts[0] if len(
-                                            parts) > 0 else "unknown"
+                                        pid = pid_info.split("pid=")[1].split(",")[0]
+                                        command = (
+                                            parts[0] if len(parts) > 0 else "unknown"
+                                        )
                                         processes.append((pid, command))
                     except Exception:
                         pass
@@ -140,6 +152,7 @@ def get_process_using_port(port):
         ws_warning("[PORT_DETECTION]", f"Error detecting processes on port {port}: {e}")
 
     return processes
+
 
 def save_ws_port(ip, assigned_port):
     """
@@ -160,16 +173,15 @@ def save_ws_port(ip, assigned_port):
                 entry["timestamp"] = int(time.time())
                 break
         else:
-            data.append({
-                "ip": ip,
-                "port": assigned_port,
-                "timestamp": int(time.time())
-            })
+            data.append(
+                {"ip": ip, "port": assigned_port, "timestamp": int(time.time())}
+            )
 
         with open(cfg.WS_PORTS_FILE, "w") as f:
             json.dump(data, f, indent=2)
     except Exception as e:
         ws_error("[WS]", f"Error saving WS port: {e}")
+
 
 def load_ws_ports():
     """
@@ -186,6 +198,7 @@ def load_ws_ports():
         ws_error("[WS]", f"Error loading WS ports: {e}")
         return []
 
+
 def port_file_age():
     """
     Returns the age of the port file in seconds.
@@ -194,6 +207,7 @@ def port_file_age():
     if not os.path.exists(cfg.WS_PORTS_FILE):
         return None
     return int(time.time() - os.path.getmtime(cfg.WS_PORTS_FILE))
+
 
 def ports_file_age():
     """
@@ -205,6 +219,7 @@ def ports_file_age():
         return None
     return int(time.time() - os.path.getmtime(ports_file_path))
 
+
 def should_regenerate_ports_file():
     """
     Determines if the ports.txt file should be regenerated.
@@ -214,11 +229,13 @@ def should_regenerate_ports_file():
     if age is None:
         ws_warning("[PORT_SCANNER]", "ports.txt not found, regeneration needed")
         return True
-    
+
     # 24 hours in seconds
     max_age = 60 * 60 * 24
     if age > max_age:
-        ws_warning("[PORT_SCANNER]", f"ports.txt is {age//3600} hours old, regeneration needed")
+        ws_warning(
+            "[PORT_SCANNER]", f"ports.txt is {age//3600} hours old, regeneration needed"
+        )
         return True
-    
+
     return False

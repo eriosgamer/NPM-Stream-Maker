@@ -67,7 +67,10 @@ def get_listening_ports_with_proto():
                         if match:
                             port = int(match.group(1))
                             ports.add((port, "tcp"))
-                            ws_info("[PORT_DETECTION]", f"Found TCP listening port: {port} [{current_process}]")
+                            ws_info(
+                                "[PORT_DETECTION]",
+                                f"Found TCP listening port: {port} [{current_process}]",
+                            )
 
                     # UDP ports - look for any UDP binding (including game servers)
                     elif line.startswith("UDP") and "*:*" in line:
@@ -75,7 +78,10 @@ def get_listening_ports_with_proto():
                         if match:
                             port = int(match.group(1))
                             ports.add((port, "udp"))
-                            ws_info("[PORT_DETECTION]", f"Found UDP port: {port} [{current_process}]")
+                            ws_info(
+                                "[PORT_DETECTION]",
+                                f"Found UDP port: {port} [{current_process}]",
+                            )
 
             except subprocess.CalledProcessError as e:
                 ws_error("[PORT_DETECTION]", f"Error running netstat -anob: {e}")
@@ -141,7 +147,9 @@ def get_listening_ports_with_proto():
                                 ports.add((int(match.group(1)), "udp"))
 
                 except Exception as e:
-                    ws_error("[PORT_DETECTION]", f"Error with Linux port detection: {e}")
+                    ws_error(
+                        "[PORT_DETECTION]", f"Error with Linux port detection: {e}"
+                    )
 
             # Method 3: Additional check with lsof for active network connections
             try:
@@ -166,14 +174,23 @@ def get_listening_ports_with_proto():
 
             except (subprocess.CalledProcessError, FileNotFoundError):
                 # lsof not available, skip this method
-                ws_warning("[PORT_DETECTION]", "lsof command not found, skipping additional port detection method")
+                ws_warning(
+                    "[PORT_DETECTION]",
+                    "lsof command not found, skipping additional port detection method",
+                )
                 pass
 
         unique_ports = list(ports)
         # Log de advertencia si la cantidad de puertos detectados es sospechosamente baja
         if len(unique_ports) < 3:
-            ws_warning("[PORT_DETECTION]", "Se detectaron pocos puertos. Puede haber un problema de permisos o el proceso no tiene privilegios suficientes.")
-        ws_info("[PORT_DETECTION]", f"Detected {len(unique_ports)} total ports: {len([p for p in unique_ports if p[1] == 'tcp'])} TCP, {len([p for p in unique_ports if p[1] == 'udp'])} UDP")
+            ws_warning(
+                "[PORT_DETECTION]",
+                "Se detectaron pocos puertos. Puede haber un problema de permisos o el proceso no tiene privilegios suficientes.",
+            )
+        ws_info(
+            "[PORT_DETECTION]",
+            f"Detected {len(unique_ports)} total ports: {len([p for p in unique_ports if p[1] == 'tcp'])} TCP, {len([p for p in unique_ports if p[1] == 'udp'])} UDP",
+        )
 
         return unique_ports
 
@@ -189,9 +206,9 @@ def list_files_ignore_hidden_and_git(root_dir, pattern):
     matches = []
     for root, dirs, files in os.walk(root_dir):
         # Ignorar carpetas ocultas y .git
-        dirs[:] = [d for d in dirs if not d.startswith('.') and d != '.git']
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != ".git"]
         for filename in fnmatch.filter(files, pattern):
-            if not filename.startswith('.'):
+            if not filename.startswith("."):
                 matches.append(os.path.join(root, filename))
     return matches
 
@@ -205,7 +222,9 @@ async def process_new_ports_with_discovery(local_ip, hostname, new_ports):
     - Updates client assignments based on the server's response.
     - Sends approved ports to WireGuard servers if available.
     """
-    ws_info("[WS_CLIENT]", f"Processing {len(new_ports)} new ports with server discovery...")
+    ws_info(
+        "[WS_CLIENT]", f"Processing {len(new_ports)} new ports with server discovery..."
+    )
 
     # Discover server types
     conflict_resolution_servers, wireguard_servers = (
@@ -234,7 +253,9 @@ async def process_new_ports_with_discovery(local_ip, hostname, new_ports):
 
     ws_info("[WS_CLIENT]", f"Processed {len(results)} port results")
     if conflict_resolutions:
-        ws_warning("[WS_CLIENT]", f"Received {len(conflict_resolutions)} conflict resolutions")
+        ws_warning(
+            "[WS_CLIENT]", f"Received {len(conflict_resolutions)} conflict resolutions"
+        )
 
     # Update client assignments
     approved_ports = []
@@ -262,7 +283,10 @@ async def process_new_ports_with_discovery(local_ip, hostname, new_ports):
             )
 
             if conflict_resolved:
-                ws_warning("[WS_CLIENT]", f"Port {port} ({proto}) assigned alternative incoming port: {incoming_port}")
+                ws_warning(
+                    "[WS_CLIENT]",
+                    f"Port {port} ({proto}) assigned alternative incoming port: {incoming_port}",
+                )
             else:
                 ws_info("[WS_CLIENT]", f"Port {port} ({proto}) assigned normally")
 

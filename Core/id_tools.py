@@ -15,6 +15,7 @@ from Client import server_querys as sq
 # configured servers based on their capabilities.
 # ---------------------------------------------------------------
 
+
 async def discover_server_types():
     """
     Discovers the types of all configured servers and organizes them into two lists:
@@ -29,7 +30,9 @@ async def discover_server_types():
         ws_error("[WS_CLIENT]", "No servers configured")
         return [], []
 
-    ws_info("[WS_CLIENT]", f"Discovering capabilities of {len(uri_token_pairs)} servers...")
+    ws_info(
+        "[WS_CLIENT]", f"Discovering capabilities of {len(uri_token_pairs)} servers..."
+    )
 
     conflict_resolution_servers = []
     wireguard_servers = []
@@ -65,7 +68,10 @@ async def discover_server_types():
 
     # Print summary of discovered servers
     ws_info("[WS_CLIENT]", f"Discovery complete:")
-    ws_info("[WS_CLIENT]", f"  - Conflict resolution servers: {len(conflict_resolution_servers)}")
+    ws_info(
+        "[WS_CLIENT]",
+        f"  - Conflict resolution servers: {len(conflict_resolution_servers)}",
+    )
     ws_info("[WS_CLIENT]", f"  - WireGuard servers: {len(wireguard_servers)}")
 
     return conflict_resolution_servers, wireguard_servers

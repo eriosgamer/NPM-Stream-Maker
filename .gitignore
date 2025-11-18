@@ -1,2 +1,11 @@
 .conda
 .gitignore
+logs/
+*.log
+.env
+ports.txt
+uri_config_hash.txt
+ports_metadata.json
+venv/
+__pycache__/
+*.pyc

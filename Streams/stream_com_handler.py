@@ -10,6 +10,7 @@ from UI.console_handler import ws_error, ws_info, ws_warning
 
 console = Console()
 
+
 def check_if_stream_exists_for_client(incoming_port, protocol, client_ip):
     """
     Checks if a stream already exists for a specific client and port combination.
@@ -27,17 +28,17 @@ def check_if_stream_exists_for_client(incoming_port, protocol, client_ip):
         if protocol.lower() == "tcp":
             cur.execute(
                 "SELECT id FROM stream WHERE incoming_port=? AND tcp_forwarding=1 AND is_deleted=0 AND forwarding_host=?",
-                (incoming_port, client_ip)
+                (incoming_port, client_ip),
             )
         elif protocol.lower() == "udp":
             cur.execute(
                 "SELECT id FROM stream WHERE incoming_port=? AND udp_forwarding=1 AND is_deleted=0 AND forwarding_host=?",
-                (incoming_port, client_ip)
+                (incoming_port, client_ip),
             )
         else:
             cur.execute(
                 "SELECT id FROM stream WHERE incoming_port=? AND (tcp_forwarding=1 OR udp_forwarding=1) AND is_deleted=0 AND forwarding_host=?",
-                (incoming_port, client_ip)
+                (incoming_port, client_ip),
             )
 
         result = cur.fetchone()
@@ -61,7 +62,10 @@ def get_next_available_ports(conflict_ports, count_needed):
         # Return default alternative ports
         return [port + 10000 for port in conflict_ports[:count_needed]]
 
-    ws_info("[STREAM_MANAGER]", f"Finding {count_needed} alternative ports for: {conflict_ports}")
+    ws_info(
+        "[STREAM_MANAGER]",
+        f"Finding {count_needed} alternative ports for: {conflict_ports}",
+    )
 
     # Get all ports currently in use
     used_ports = set()
@@ -81,7 +85,10 @@ def get_next_available_ports(conflict_ports, count_needed):
     search_range_start = 35000
     search_range_end = 35999
 
-    ws_info("[STREAM_MANAGER]", f"Searching in range {search_range_start}-{search_range_end}")
+    ws_info(
+        "[STREAM_MANAGER]",
+        f"Searching in range {search_range_start}-{search_range_end}",
+    )
 
     for port in range(search_range_start, search_range_end + 1):
         if port not in used_ports:
@@ -90,7 +97,10 @@ def get_next_available_ports(conflict_ports, count_needed):
                 break
 
     if len(alternative_ports) < count_needed:
-        ws_warning("[STREAM_MANAGER]", f"Warning: Only found {len(alternative_ports)} alternative ports, needed {count_needed}")
+        ws_warning(
+            "[STREAM_MANAGER]",
+            f"Warning: Only found {len(alternative_ports)} alternative ports, needed {count_needed}",
+        )
         # Fill remaining with higher ports
         for i in range(len(alternative_ports), count_needed):
             alternative_ports.append(search_range_end + 1 + i)
@@ -117,27 +127,30 @@ def check_existing_conflict_resolution(client_ip, original_port, protocol):
         if protocol.lower() == "tcp":
             cur.execute(
                 "SELECT incoming_port, id FROM stream WHERE forwarding_host=? AND forwarding_port=? AND tcp_forwarding=1 AND is_deleted=0 AND incoming_port!=forwarding_port",
-                (client_ip, original_port)
+                (client_ip, original_port),
             )
         elif protocol.lower() == "udp":
             cur.execute(
                 "SELECT incoming_port, id FROM stream WHERE forwarding_host=? AND forwarding_port=? AND udp_forwarding=1 AND is_deleted=0 AND incoming_port!=forwarding_port",
-                (client_ip, original_port)
+                (client_ip, original_port),
             )
         else:
             cur.execute(
                 "SELECT incoming_port, id FROM stream WHERE forwarding_host=? AND forwarding_port=? AND (tcp_forwarding=1 OR udp_forwarding=1) AND is_deleted=0 AND incoming_port!=forwarding_port",
-                (client_ip, original_port)
+                (client_ip, original_port),
             )
 
         result = cur.fetchone()
         return result if result else None
 
     except Exception as e:
-        ws_error("[STREAM_MANAGER]", f"Error checking existing conflict resolution: {e}")
+        ws_error(
+            "[STREAM_MANAGER]", f"Error checking existing conflict resolution: {e}"
+        )
         return None
     finally:
         conn.close()
+
 
 # --------------------------------------------------------------------------------
 # Module: stream_com_handler.py

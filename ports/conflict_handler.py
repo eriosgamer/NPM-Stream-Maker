@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from ports import conflict_resolution as cf_res
 from UI.console_handler import ws_info, ws_error, ws_warning
+
 console = Console()
 
 
@@ -67,7 +68,8 @@ def get_conflict_resolution_info():
                 protocols.append("UDP")
 
             conflict_streams.append(
-                (incoming_port, forwarding_host, forwarding_port, protocols))
+                (incoming_port, forwarding_host, forwarding_port, protocols)
+            )
 
     except Exception as e:
         ws_error("[STREAM_MANAGER]", f"Error getting conflict resolution info: {e}")
@@ -75,7 +77,6 @@ def get_conflict_resolution_info():
         conn.close()
 
     return conflict_streams
-
 
 
 # Not used
@@ -95,7 +96,7 @@ def find_conflict_resolution_by_multiple_ips(original_port, protocol, client_ips
         for client_ip in client_ips:
             cur.execute(
                 "SELECT incoming_port, forwarding_host FROM stream WHERE forwarding_port=? AND is_deleted=0 AND incoming_port!=forwarding_port",
-                (original_port,)
+                (original_port,),
             )
 
             for row in cur.fetchall():
@@ -105,14 +106,15 @@ def find_conflict_resolution_by_multiple_ips(original_port, protocol, client_ips
                 if forwarding_host in client_ips:
                     cur.execute(
                         "SELECT tcp_forwarding, udp_forwarding FROM stream WHERE incoming_port=? AND forwarding_host=? AND is_deleted=0",
-                        (incoming_port, forwarding_host)
+                        (incoming_port, forwarding_host),
                     )
                     stream_row = cur.fetchone()
 
                     if stream_row:
                         tcp_f, udp_f = stream_row
                         has_protocol = (protocol.lower() == "tcp" and tcp_f) or (
-                            protocol.lower() == "udp" and udp_f)
+                            protocol.lower() == "udp" and udp_f
+                        )
 
                         if has_protocol:
                             return (incoming_port, forwarding_host)
@@ -127,7 +129,9 @@ def find_conflict_resolution_by_multiple_ips(original_port, protocol, client_ips
 
 
 # Copied
-def get_next_available_port(used_ports, preferred_port, ip, proto, used_by, wg_mode=False, wg_map=None):
+def get_next_available_port(
+    used_ports, preferred_port, ip, proto, used_by, wg_mode=False, wg_map=None
+):
     """
     Returns the next available port not in used_ports, starting from preferred_port.
     If preferred_port is available for this ip/proto, returns it.
@@ -151,6 +155,7 @@ def get_next_available_port(used_ports, preferred_port, ip, proto, used_by, wg_m
         if port not in used_ports:
             return port
     raise RuntimeError("No available ports in the specified range.")
+
 
 # Copied
 async def notify_clients_of_conflicts_and_assignments():
@@ -182,11 +187,18 @@ async def notify_clients_of_conflicts_and_assignments():
             owner = cfg.assigned_ports.get(port_proto)
             if owner == client_id:
                 assigned.append(
-                    {"port": port_proto[0], "protocol": port_proto[1], "assigned": True, "incoming_port": port_proto[0]})
+                    {
+                        "port": port_proto[0],
+                        "protocol": port_proto[1],
+                        "assigned": True,
+                        "incoming_port": port_proto[0],
+                    }
+                )
             else:
                 alt_port = None
                 used_incoming_ports = set(
-                    p for (p, _), cid in cfg.assigned_ports.items())
+                    p for (p, _), cid in cfg.assigned_ports.items()
+                )
                 min_port, max_port = 20000, 60000
                 for candidate in range(min_port, max_port):
                     if candidate not in used_incoming_ports:
@@ -194,23 +206,35 @@ async def notify_clients_of_conflicts_and_assignments():
                         break
                 if alt_port is not None:
                     assigned.append(
-                        {"port": port_proto[0], "protocol": port_proto[1], "assigned": False, "incoming_port": alt_port})
+                        {
+                            "port": port_proto[0],
+                            "protocol": port_proto[1],
+                            "assigned": False,
+                            "incoming_port": alt_port,
+                        }
+                    )
                     cfg.assigned_ports[(alt_port, port_proto[1])] = client_id
-                conflicts.append({
-                    "port": port_proto[0],
-                    "protocol": port_proto[1],
-                    "clients": port_map[port_proto],
-                    "assigned_to": owner
-                })
+                conflicts.append(
+                    {
+                        "port": port_proto[0],
+                        "protocol": port_proto[1],
+                        "clients": port_map[port_proto],
+                        "assigned_to": owner,
+                    }
+                )
         try:
             ws = info["ws"]
-            if hasattr(ws, 'closed') and ws.closed:
+            if hasattr(ws, "closed") and ws.closed:
                 continue
-            await ws.send(json.dumps({
-                "type": "client_port_assignments",
-                "assignments": assigned,
-                "conflicts": conflicts
-            }))
+            await ws.send(
+                json.dumps(
+                    {
+                        "type": "client_port_assignments",
+                        "assignments": assigned,
+                        "conflicts": conflicts,
+                    }
+                )
+            )
         except Exception as ex:
             logging.debug(f"Client {client_id} websocket closed or error: {ex}")
 
@@ -219,41 +243,60 @@ async def notify_clients_of_conflicts_and_assignments():
         changed = prev_assigned_ports.get(port_proto) != clients[0]
         client_id = clients[0]
         info = cfg.connected_clients.get(client_id)
-        if not info or (hasattr(info["ws"], 'closed') and info["ws"].closed):
+        if not info or (hasattr(info["ws"], "closed") and info["ws"].closed):
             continue
         ws = info["ws"]
         try:
             if len(clients) == 1 and changed:
-                await ws.send(json.dumps({
-                    "type": "client_port_assignment_update",
-                    "port": port_proto[0],
-                    "protocol": port_proto[1],
-                    "assigned": True,
-                    "incoming_port": port_proto[0]
-                }))
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": "client_port_assignment_update",
+                            "port": port_proto[0],
+                            "protocol": port_proto[1],
+                            "assigned": True,
+                            "incoming_port": port_proto[0],
+                        }
+                    )
+                )
                 logging.info(
-                    f"Port {port_proto[0]} ({port_proto[1]}) assigned to {client_id} after conflict resolution")
+                    f"Port {port_proto[0]} ({port_proto[1]}) assigned to {client_id} after conflict resolution"
+                )
             elif len(clients) > 1 and changed:
-                await ws.send(json.dumps({
-                    "type": "client_port_assignment_update",
-                    "port": port_proto[0],
-                    "protocol": port_proto[1],
-                    "assigned": False,
-                    "incoming_port": port_proto[0]
-                }))
-                await ws.send(json.dumps({
-                    "type": "client_port_conflict_resolution",
-                    "port": port_proto[0],
-                    "protocol": port_proto[1],
-                    "conflicting_clients": clients,
-                    "assigned_to": client_id
-                }))
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": "client_port_assignment_update",
+                            "port": port_proto[0],
+                            "protocol": port_proto[1],
+                            "assigned": False,
+                            "incoming_port": port_proto[0],
+                        }
+                    )
+                )
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": "client_port_conflict_resolution",
+                            "port": port_proto[0],
+                            "protocol": port_proto[1],
+                            "conflicting_clients": clients,
+                            "assigned_to": client_id,
+                        }
+                    )
+                )
         except Exception as ex:
             try:
-                if hasattr(ws, 'closed') and not ws.closed:
-                    ws_error("[WS]", f"Error notifying client {client_id} of port assignment/conflict update: {ex}")
+                if hasattr(ws, "closed") and not ws.closed:
+                    ws_error(
+                        "[WS]",
+                        f"Error notifying client {client_id} of port assignment/conflict update: {ex}",
+                    )
             except Exception:
-                logging.debug(f"Error checking websocket status for client {client_id}: {ex}")
+                logging.debug(
+                    f"Error checking websocket status for client {client_id}: {ex}"
+                )
+
 
 # Copied
 def get_saved_alternative_port(original_port, protocol, server_ip):
@@ -263,9 +306,12 @@ def get_saved_alternative_port(original_port, protocol, server_ip):
     key = f"{original_port}|{protocol}|{server_ip}"
     return cfg.port_conflict_resolutions.get((original_port, protocol, server_ip))
 
+
 # Copied
 def save_alternative_port(original_port, protocol, server_ip, alternative_port):
     """
     Save an alternative port assignment for a given original port, protocol, and server IP.
     """
-    cfg.port_conflict_resolutions[(original_port, protocol, server_ip)] = alternative_port
+    cfg.port_conflict_resolutions[(original_port, protocol, server_ip)] = (
+        alternative_port
+    )

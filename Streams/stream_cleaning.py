@@ -29,6 +29,7 @@ This module provides utilities for cleaning up all stream-related data, includin
 Intended for use in both manual (Control Panel) and automated (server-side) scenarios.
 """
 
+
 def clear_all_streams():
     """
     Deletes all streams and related data.
@@ -41,7 +42,7 @@ def clear_all_streams():
     confirm = Prompt.ask(
         "[bold red]⚠️  This will delete ALL streams and conflict resolution data. Are you sure?[/bold red]",
         choices=["yes", "no"],
-        default="yes"
+        default="yes",
     )
 
     if confirm != "yes":
@@ -59,12 +60,21 @@ def clear_all_streams():
 
         # Check if Docker is available for optional NPM operations
         missing_deps = dep_manager.get_missing_dependencies()
-        docker_available = "docker" not in missing_deps and "docker-compose" not in missing_deps
+        docker_available = (
+            "docker" not in missing_deps and "docker-compose" not in missing_deps
+        )
         env["DOCKER_AVAILABLE"] = "1" if docker_available else "0"
 
         ws_info("[STREAM_CLEANING]", "🧹 Cleaning all streams and stopping NPM...")
         # Stop NPM if Docker is available, otherwise skip
-        npm.stop_npm() if docker_available else ws_warning("[STREAM_CLEANING]", "📋 Docker not available - NPM operations were skipped")
+        (
+            npm.stop_npm()
+            if docker_available
+            else ws_warning(
+                "[STREAM_CLEANING]",
+                "📋 Docker not available - NPM operations were skipped",
+            )
+        )
         ws_info("[STREAM_CLEANING]", "🗑️  Clearing streams database...")
         db_handler.clean_streams_database()
         ws_info("[STREAM_CLEANING]", "🗂️  Cleaning stream configuration files...")
@@ -84,23 +94,37 @@ def clean_stream_configurations():
     try:
         # Check if the NGINX stream directory exists
         if not os.path.exists(cfg.NGINX_STREAM_DIR):
-            ws_info("[STREAM_CLEANING]", "NGINX stream directory does not exist - creating it for future use")
+            ws_info(
+                "[STREAM_CLEANING]",
+                "NGINX stream directory does not exist - creating it for future use",
+            )
             try:
                 os.makedirs(cfg.NGINX_STREAM_DIR, exist_ok=True)
-                ws_info("[STREAM_CLEANING]", f"Created directory: {cfg.NGINX_STREAM_DIR}")
+                ws_info(
+                    "[STREAM_CLEANING]", f"Created directory: {cfg.NGINX_STREAM_DIR}"
+                )
             except Exception as e:
-                ws_error("[STREAM_CLEANING]", f"Could not create directory {cfg.NGINX_STREAM_DIR}: {e}")
+                ws_error(
+                    "[STREAM_CLEANING]",
+                    f"Could not create directory {cfg.NGINX_STREAM_DIR}: {e}",
+                )
             return
 
         # List all files in the directory
         all_files = os.listdir(cfg.NGINX_STREAM_DIR)
-        conf_files = [f for f in all_files if f.endswith('.conf')]
+        conf_files = [f for f in all_files if f.endswith(".conf")]
 
         if not conf_files:
-            ws_info("[STREAM_CLEANING]", f"No .conf files found in {cfg.NGINX_STREAM_DIR} (directory has {len(all_files)} total files)")
+            ws_info(
+                "[STREAM_CLEANING]",
+                f"No .conf files found in {cfg.NGINX_STREAM_DIR} (directory has {len(all_files)} total files)",
+            )
             return
 
-        ws_info("[STREAM_CLEANING]", f"Found {len(conf_files)} stream configuration files to remove")
+        ws_info(
+            "[STREAM_CLEANING]",
+            f"Found {len(conf_files)} stream configuration files to remove",
+        )
 
         cleaned_count = 0
         failed_count = 0
@@ -116,9 +140,15 @@ def clean_stream_configurations():
                 failed_count += 1
                 ws_error("[STREAM_CLEANING]", f"Could not remove {filename}: {e}")
 
-        ws_info("[STREAM_CLEANING]", f"Successfully cleaned {cleaned_count} stream configuration files")
+        ws_info(
+            "[STREAM_CLEANING]",
+            f"Successfully cleaned {cleaned_count} stream configuration files",
+        )
         if failed_count > 0:
-            ws_warning("[STREAM_CLEANING]", f"Failed to remove {failed_count} configuration files")
+            ws_warning(
+                "[STREAM_CLEANING]",
+                f"Failed to remove {failed_count} configuration files",
+            )
 
     except Exception as e:
         ws_error("[STREAM_CLEANING]", f"Error cleaning stream configurations: {e}")
@@ -143,11 +173,19 @@ def clean_all_streams():
         try:
             cleared_count = cf_clean.clear_all_conflict_resolution_data()
             if cleared_count > 0:
-                ws_info("[STREAM_CLEANING]", f"[OK] Cleared {cleared_count} conflict resolution files")
+                ws_info(
+                    "[STREAM_CLEANING]",
+                    f"[OK] Cleared {cleared_count} conflict resolution files",
+                )
             else:
-                ws_info("[STREAM_CLEANING]", "[INFO] No conflict resolution files found to clear")
+                ws_info(
+                    "[STREAM_CLEANING]",
+                    "[INFO] No conflict resolution files found to clear",
+                )
         except ImportError as e:
-            ws_warning("[STREAM_CLEANING]", f"[WARNING] Could not import Stream_Manager: {e}")
+            ws_warning(
+                "[STREAM_CLEANING]", f"[WARNING] Could not import Stream_Manager: {e}"
+            )
             # Fallback: manually clear files
 
             cleared_count = 0
@@ -159,9 +197,14 @@ def clean_all_streams():
                         ws_info("[STREAM_CLEANING]", f"[OK] Removed: {file_path}")
                 except Exception as e:
                     ws_error("[STREAM_CLEANING]", f"Could not remove {file_path}: {e}")
-            ws_info("[STREAM_CLEANING]", f"[OK] Manually cleared {cleared_count} conflict resolution files")
+            ws_info(
+                "[STREAM_CLEANING]",
+                f"[OK] Manually cleared {cleared_count} conflict resolution files",
+            )
         except Exception as e:
-            ws_error("[STREAM_CLEANING]", f"Could not clear conflict resolution data: {e}")
+            ws_error(
+                "[STREAM_CLEANING]", f"Could not clear conflict resolution data: {e}"
+            )
 
         # Step 2: Clean database (only if it exists)
         ws_info("[STREAM_CLEANING]", "[STEP 2] Cleaning streams database...")
@@ -185,16 +228,29 @@ def clean_all_streams():
                     file_size = os.path.getsize(file_path)
                     os.remove(file_path)
                     cleaned_additional += 1
-                    ws_info("[STREAM_CLEANING]", f"[OK] Removed: {file_path} ({file_size} bytes)")
+                    ws_info(
+                        "[STREAM_CLEANING]",
+                        f"[OK] Removed: {file_path} ({file_size} bytes)",
+                    )
                 else:
-                    ws_info("[STREAM_CLEANING]", f"[INFO] File not found (already clean): {file_path}")
+                    ws_info(
+                        "[STREAM_CLEANING]",
+                        f"[INFO] File not found (already clean): {file_path}",
+                    )
             except Exception as e:
-                ws_error("[STREAM_CLEANING]", f"[ERROR] Could not remove {file_path}: {e}")
+                ws_error(
+                    "[STREAM_CLEANING]", f"[ERROR] Could not remove {file_path}: {e}"
+                )
 
         if found_additional > 0:
-            ws_info("[STREAM_CLEANING]", f"[OK] Successfully cleaned {cleaned_additional}/{found_additional} additional state files")
+            ws_info(
+                "[STREAM_CLEANING]",
+                f"[OK] Successfully cleaned {cleaned_additional}/{found_additional} additional state files",
+            )
         else:
-            ws_info("[STREAM_CLEANING]", "[INFO] No additional state files found to clean")
+            ws_info(
+                "[STREAM_CLEANING]", "[INFO] No additional state files found to clean"
+            )
 
         # Step 5: Handle NPM operations based on context
         ws_info("[STREAM_CLEANING]", "[STEP 5] Handling NPM operations...")
@@ -202,28 +258,73 @@ def clean_all_streams():
             try:
                 if run_from_panel:
                     # When run from Control Panel: only stop NPM, don't restart
-                    ws_info("[STREAM_CLEANING]", "[INFO] Running from Control Panel - stopping NPM without restart")
+                    ws_info(
+                        "[STREAM_CLEANING]",
+                        "[INFO] Running from Control Panel - stopping NPM without restart",
+                    )
                     npmh.stop_npm()
                     ws_info("[STREAM_CLEANING]", "[OK] NPM stopped successfully")
-                    ws_info("[STREAM_CLEANING]", "[INFO] NPM will need to be manually restarted when ready to use streams again")
+                    ws_info(
+                        "[STREAM_CLEANING]",
+                        "[INFO] NPM will need to be manually restarted when ready to use streams again",
+                    )
                 else:
                     # When run automatically (e.g., from ws_server): reload NPM
-                    ws_info("[STREAM_CLEANING]", "[INFO] Running automatically - reloading NPM")
+                    ws_info(
+                        "[STREAM_CLEANING]",
+                        "[INFO] Running automatically - reloading NPM",
+                    )
                     npmh.reload_npm()
                     ws_info("[STREAM_CLEANING]", "[OK] NPM reloaded successfully")
             except Exception as e:
-                ws_error("[STREAM_CLEANING]", f"[WARNING] Could not handle NPM operations: {e}")
+                ws_error(
+                    "[STREAM_CLEANING]",
+                    f"[WARNING] Could not handle NPM operations: {e}",
+                )
         else:
-            ws_info("[STREAM_CLEANING]", "[INFO] Docker not available - NPM operations skipped")
+            ws_info(
+                "[STREAM_CLEANING]",
+                "[INFO] Docker not available - NPM operations skipped",
+            )
 
         ws_info("[STREAM_CLEANING]", "[INFO] Cleanup process completed.")
         if run_from_panel:
-            ws_info("[STREAM_CLEANING]", "[SUCCESS] All streams and conflict resolutions cleaned successfully!")
-            ws_info("[STREAM_CLEANING]", "[INFO] NPM has been stopped. Restart manually when ready to use streams again.")
+            ws_info(
+                "[STREAM_CLEANING]",
+                "[SUCCESS] All streams and conflict resolutions cleaned successfully!",
+            )
+            ws_info(
+                "[STREAM_CLEANING]",
+                "[INFO] NPM has been stopped. Restart manually when ready to use streams again.",
+            )
         else:
-            ws_info("[STREAM_CLEANING]", "[SUCCESS] All streams and conflict resolutions cleaned and NPM reloaded!")
+            ws_info(
+                "[STREAM_CLEANING]",
+                "[SUCCESS] All streams and conflict resolutions cleaned and NPM reloaded!",
+            )
         ws_info("[STREAM_CLEANING]", "[INFO] Cleanup process completed.")
 
     except Exception as e:
-        ws_error("[STREAM_CLEANING]", f"[FATAL ERROR] Error during complete cleanup: {e}")
+        ws_error(
+            "[STREAM_CLEANING]", f"[FATAL ERROR] Error during complete cleanup: {e}"
+        )
         raise
+
+
+def delete_specific_stream(id):
+    """
+    Deletes a specific stream by ID from the database and configuration files.
+    """
+    try:
+        ws_info("[STREAM_CLEANING]", f"Deleting stream with ID: {id}")
+        db_handler.delete_stream(id)
+        conf_file = os.path.join(cfg.NGINX_STREAM_DIR, f"stream_{id}.conf")
+        if os.path.exists(conf_file):
+            os.remove(conf_file)
+            ws_info("[STREAM_CLEANING]", f"Removed configuration file: {conf_file}")
+        else:
+            ws_warning(
+                "[STREAM_CLEANING]", f"Configuration file not found: {conf_file}"
+            )
+    except Exception as e:
+        ws_error("[STREAM_CLEANING]", f"Error deleting stream ID {id}: {e}")

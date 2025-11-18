@@ -11,6 +11,7 @@ from Config import config as cfg
 from Config import ws_config_handler as websocket_config
 from WebSockets import websocket_config as ws_config_handler
 from UI.console_handler import ws_error, ws_info
+
 console = Console()
 
 # Load environment variables from .env file
@@ -51,7 +52,10 @@ def run_script(script):
             else:
                 ws_error("[WS_CLIENT]", f"Connection to {uri} failed or invalid token.")
         if not successful:
-            ws_error("[WS_CLIENT]", "No valid WebSocket connections found. Please check your .env.")
+            ws_error(
+                "[WS_CLIENT]",
+                "No valid WebSocket connections found. Please check your .env.",
+            )
             return
     # Print a rule in the console indicating which script is being run
     console.rule(f"[bold cyan]Running: {script}")
@@ -65,7 +69,13 @@ def run_script(script):
         if tokens:
             env["WS_TOKENS"] = ",".join(tokens)
     # Add protection to allow execution only from the panel
-    if script in ("ws_client.py", "ws_server.py", "Port_Scanner.py", "NPM_Cleaner.py", "Stream_Manager.py"):
+    if script in (
+        "ws_client.py",
+        "ws_server.py",
+        "Port_Scanner.py",
+        "NPM_Cleaner.py",
+        "Stream_Manager.py",
+    ):
         env["RUN_FROM_PANEL"] = "1"
     # Run the script as a subprocess with the prepared environment
     result = subprocess.run([sys.executable, script], text=True, env=env)
@@ -73,6 +83,7 @@ def run_script(script):
         ws_info("[WS_SERVER]", f"{script} finished successfully.")
     else:
         ws_error("[WS_SERVER]", f"Error running {script} (code {result.returncode})")
+
 
 # This module provides a utility to safely run core scripts (such as WebSocket server/client, port scanner, etc.)
 # It ensures that all required configuration and tokens are present before execution,
