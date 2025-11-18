@@ -9,3 +9,4 @@ ports_metadata.json
 venv/
 __pycache__/
 *.pyc
+nginx/
