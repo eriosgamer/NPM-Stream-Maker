@@ -10,12 +10,71 @@ from rich.live import Live
 from enum import Enum
 from typing import Dict, Any, Optional, List
 import os
-import sys
 import threading
 from collections import deque
 
+
+import shutil
+import zipfile
+
+LOG_DIR = "logs"
+LOG_FILE = "npm_console.log"
+
+
+def ensure_log_file():
+    """
+    Asegura que el log actual sea del día. Si existe y no es de hoy, lo mueve a logs/ y lo comprime.
+    """
+    today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    # Crear carpeta logs si no existe
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+
+    # Si existe el log, verificar si es de hoy
+    if os.path.exists(LOG_FILE):
+        try:
+            with open(LOG_FILE, "r") as f:
+                first_line = f.readline()
+                second_line = f.readline()
+                # Buscar fecha en el primer log del día
+                # Si el archivo es muy grande, solo revisamos el nombre
+            # Obtener fecha de modificación
+            mtime = datetime.datetime.fromtimestamp(os.path.getmtime(LOG_FILE)).strftime("%Y-%m-%d")
+            if mtime != today_str:
+                # Mover y comprimir log anterior
+                zip_name = f"npm_console_{mtime}.zip"
+                zip_path = os.path.join(LOG_DIR, zip_name)
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                    zipf.write(LOG_FILE, arcname=f"npm_console_{mtime}.log")
+                os.remove(LOG_FILE)
+        except Exception as e:
+            # Si hay error, continuar y crear nuevo log
+            pass
+    # Crear nuevo log si no existe
+    if not os.path.exists(LOG_FILE):
+        with open(LOG_FILE, "w") as f:
+            f.write("NPM Console Log\n")
+            f.write("=" * 50 + "\n")
+
+
+def append_to_log(entry: str):
+    """
+    Añade una entrada al log actual con timestamp. Llama a ensure_log_file para rotar si es necesario.
+    """
+    try:
+        ensure_log_file()
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
+        with open(LOG_FILE, "a") as f:
+            f.write(f"[{timestamp}] {entry}\n")
+    except PermissionError:
+        # Si no hay permisos de escritura, intentar imprimir en consola en lugar de fallar
+        pass
+    except Exception:
+        # Ignorar otros errores de log para no interrumpir el flujo principal
+        pass
+
 class MessageType(Enum):
-    """Tipos de mensajes WebSocket"""
+    """WebSocket message types"""
     INFO = "info"
     SUCCESS = "success"
     WARNING = "warning"
@@ -24,12 +83,11 @@ class MessageType(Enum):
     CONNECTION = "connection"
     SERVER = "server"
     CLIENT = "client"
-    REMOTE = "remote"
 
 class ConsoleHandler:
     """
-    Manejador centralizado de consola para todos los mensajes WebSocket.
-    Proporciona diseño unificado y formato consistente con scroll.
+    Centralized console handler for all WebSocket messages.
+    Provides unified layout and consistent formatting with scroll.
     """
     
     def __init__(self):
@@ -42,7 +100,7 @@ class ConsoleHandler:
         self.live_display = None
         self.message_lock = threading.Lock()
         
-        # Configuración de estilos para cada tipo de mensaje
+        # Style configuration for each message type
         self.styles = {
             MessageType.INFO: {"color": "cyan", "icon": "ℹ️", "prefix": "INFO"},
             MessageType.SUCCESS: {"color": "green", "icon": "✅", "prefix": "SUCCESS"},
@@ -52,10 +110,9 @@ class ConsoleHandler:
             MessageType.CONNECTION: {"color": "magenta", "icon": "🔗", "prefix": "CONNECTION"},
             MessageType.SERVER: {"color": "bright_blue", "icon": "🖥️", "prefix": "SERVER"},
             MessageType.CLIENT: {"color": "bright_green", "icon": "💻", "prefix": "CLIENT"},
-            MessageType.REMOTE: {"color": "bright_magenta", "icon": "🌐", "prefix": "REMOTE"}
         }
         
-        # Configuración de componentes
+        # Component configuration
         self.components = {
             "WS": "WebSocket",
             "WS_CLIENT": "WebSocket Client", 
@@ -67,11 +124,11 @@ class ConsoleHandler:
         }
 
     def clear_console(self):
-        """Limpia la consola"""
+        """Clears the console"""
         os.system('cls' if os.name == 'nt' else 'clear')
 
     def get_timestamp(self) -> str:
-        """Obtiene timestamp formateado"""
+        """Gets formatted timestamp"""
         return datetime.datetime.now().strftime("%H:%M:%S")
 
     def format_message(self, 
@@ -80,13 +137,13 @@ class ConsoleHandler:
                       msg_type: MessageType = MessageType.INFO,
                       details: Optional[Dict[str, Any]] = None) -> Text:
         """
-        Formatea un mensaje con estilo unificado.
+        Formats a message with unified style.
         
         Args:
-            component: Componente del sistema (WS, WS_CLIENT, etc.)
-            message: Mensaje principal
-            msg_type: Tipo de mensaje
-            details: Detalles adicionales opcionales
+            component: System component (WS, WS_CLIENT, etc.)
+            message: Main message
+            msg_type: Message type
+            details: Optional additional details
         """
         style_config = self.styles[msg_type]
         timestamp = self.get_timestamp()
@@ -116,16 +173,16 @@ class ConsoleHandler:
         return formatted_text
 
     def get_terminal_size(self):
-        """Obtiene el tamaño actual de la terminal"""
+        """Gets the current terminal size"""
         return self.console.size
 
     def create_header(self, title: str = "NPM Stream Manager", subtitle: str = "Console Output"):
-        """Crea el header fijo para la consola"""
+        """Creates the fixed header for the console"""
         header_content = Text()
-        header_content.append(title, style="bold blue", justify="center")
+        header_content.append(title, style="bold blue")
         if subtitle:
-            header_content.append(f"\n{subtitle}", style="dim white", justify="center")
-        
+            header_content.append(f"\n{subtitle}", style="dim white")
+
         return Panel(
             Align.center(header_content),
             style="bold blue",
@@ -134,7 +191,7 @@ class ConsoleHandler:
         )
 
     def create_footer(self, help_items: Optional[List[tuple]] = None):
-        """Crea el footer fijo con ayuda"""
+        """Creates the fixed footer with help"""
         if not help_items:
             help_items = [
                 ("Ctrl+C", "Exit"),
@@ -159,11 +216,11 @@ class ConsoleHandler:
         )
 
     def create_message_panel(self, max_lines: int = 20):
-        """Crea el panel de mensajes con scroll"""
+        """Creates the message panel with scroll"""
         terminal_width, terminal_height = self.get_terminal_size()
         
-        # Calcular número de líneas disponibles
-        available_lines = min(max_lines, terminal_height - 10)  # Reservar espacio para header/footer
+        # Calculate number of available lines
+        available_lines = min(max_lines, terminal_height - 10)  # Reserve space for header/footer
         
         # Obtener mensajes recientes
         with self.message_lock:
@@ -190,7 +247,7 @@ class ConsoleHandler:
         return message_panel
 
     def start_live_mode(self, title: str = "NPM Stream Manager", subtitle: str = "Live Console"):
-        """Inicia el modo de consola en vivo con layout fijo"""
+        """Starts live console mode with fixed layout"""
         if self.is_live_mode:
             return
         
@@ -228,7 +285,7 @@ class ConsoleHandler:
             self.console.print(f"[red]Failed to start live mode: {e}[/red]")
 
     def stop_live_mode(self):
-        """Detiene el modo de consola en vivo"""
+        """Stops live console mode"""
         if not self.is_live_mode:
             return
         
@@ -242,7 +299,7 @@ class ConsoleHandler:
             self.live_display = None
 
     def update_live_display(self):
-        """Actualiza el display en vivo si está activo"""
+        """Updates the live display if active"""
         if not self.is_live_mode or not self.live_display:
             return
         
@@ -250,7 +307,7 @@ class ConsoleHandler:
             # Crear layout actualizado
             layout = Layout()
             layout.split_column(
-                Layout(self.create_header(self.current_component, "Live Console"), name="header", size=4),
+                Layout(self.create_header(self.current_component or "NPM Stream Manager", "Live Console"), name="header", size=4),
                 Layout(name="main"),
                 Layout(self.create_footer(), name="footer", size=3)
             )
@@ -264,7 +321,7 @@ class ConsoleHandler:
             pass
 
     def add_live_message(self, formatted_text: Text):
-        """Añade un mensaje al buffer de mensajes en vivo"""
+        """Adds a message to the live message buffer"""
         with self.message_lock:
             # Añadir timestamp si no está en modo live
             if not self.is_live_mode:
@@ -285,52 +342,128 @@ class ConsoleHandler:
                      message: str, 
                      msg_type: MessageType = MessageType.INFO,
                      details: Optional[Dict[str, Any]] = None,
-                     save_to_history: bool = True):
+                     save_to_history: bool = True,
+                     interpret_markup: bool = True):
         """
-        Imprime un mensaje formateado en la consola con scroll.
+        Prints a formatted message to the console with scroll.
+        If interpret_markup is True, interprets Rich markup tags in the message.
         """
-        formatted_message = self.format_message(component, message, msg_type, details)
-        
-        if self.is_live_mode:
-            # En modo live, añadir al buffer
-            self.add_live_message(formatted_message)
+        # Si el mensaje contiene etiquetas Rich, usar markup
+        if interpret_markup and ("[" in message and "]" in message):
+            # Imprimir usando markup
+            if self.is_live_mode:
+                # En modo live, añadir como texto plano (sin markup)
+                formatted_message = self.format_message(component, self._strip_markup(message), msg_type, details)
+                self.add_live_message(formatted_message)
+            else:
+                # Imprimir con markup
+                self.console.print(message, markup=True)
+                # También añadir al buffer para futuro modo live
+                formatted_message = self.format_message(component, self._strip_markup(message), msg_type, details)
+                self.add_live_message(formatted_message)
         else:
-            # En modo normal, imprimir directamente
-            self.console.print(formatted_message)
-            # También añadir al buffer para futuro modo live
-            self.add_live_message(formatted_message)
-        
+            formatted_message = self.format_message(component, message, msg_type, details)
+            if self.is_live_mode:
+                self.add_live_message(formatted_message)
+            else:
+                self.console.print(formatted_message)
+                self.add_live_message(formatted_message)
         # Guardar en historial
         if save_to_history:
             self.message_history.append({
                 "timestamp": time.time(),
                 "component": component,
-                "message": message,
+                "message": self._strip_markup(message),
                 "type": msg_type.value,
                 "details": details
             })
-            
             # Limitar historial
             if len(self.message_history) > self.max_history:
                 self.message_history = self.message_history[-self.max_history:]
+
+    def _strip_markup(self, text: str) -> str:
+        """
+        Elimina las etiquetas Rich markup del texto para guardar limpio en el log.
+        """
+        import re
+        # Elimina [xxx] y [/xxx] y [xxx=yyy]
+        return re.sub(r"\[/?[a-zA-Z0-9_\-=]+\]", "", text)
 
     def show_scrollable_console(self, 
                                title: str = "Console Output",
                                auto_scroll: bool = True,
                                show_help: bool = True):
         """
-        Muestra una consola scrollable con todos los mensajes del historial.
+        Shows a simple scrollable console, similar to the client, with key navigation.
         """
-        from rich.console import Group
-        from rich.padding import Padding
-        
-        terminal_width, terminal_height = self.get_terminal_size()
-        available_height = terminal_height - 8  # Espacio para header/footer
-        
-        # Preparar mensajes para mostrar
+        import os, sys
+        import time
+
+        # Manejo de teclas multiplataforma simple
+        if os.name == "nt":
+            import msvcrt
+            def get_key():
+                key = msvcrt.getch()
+                if key == b"\xe0":
+                    key2 = msvcrt.getch()
+                    if key2 == b"H":
+                        return "up"
+                    elif key2 == b"P":
+                        return "down"
+                    elif key2 == b"G":
+                        return "home"
+                    elif key2 == b"O":
+                        return "end"
+                    elif key2 == b"I":
+                        return "pgup"
+                    elif key2 == b"Q":
+                        return "pgdn"
+                elif key == b"\r":
+                    return "enter"
+                elif key == b"\x1b":
+                    return "esc"
+                elif key == b" ":
+                    return "space"
+        else:
+            import termios, tty, select
+            def get_key():
+                fd = sys.stdin.fileno()
+                old_settings = termios.tcgetattr(fd)
+                try:
+                    tty.setraw(fd)
+                    while True:
+                        if select.select([sys.stdin], [], [], 0.1)[0]:
+                            key = sys.stdin.read(1)
+                            if key == "\x1b":
+                                seq = sys.stdin.read(1)
+                                if seq == "[":
+                                    seq2 = sys.stdin.read(1)
+                                    if seq2 == "A":
+                                        return "up"
+                                    elif seq2 == "B":
+                                        return "down"
+                                    elif seq2 == "H":
+                                        return "home"
+                                    elif seq2 == "F":
+                                        return "end"
+                                    elif seq2 == "5":
+                                        if sys.stdin.read(1) == "~":
+                                            return "pgup"
+                                    elif seq2 == "6":
+                                        if sys.stdin.read(1) == "~":
+                                            return "pgdn"
+                                else:
+                                    return "esc"
+                            elif key == "\r" or key == "\n":
+                                return "enter"
+                            elif key == " ":
+                                return "space"
+                finally:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+        # Mensajes formateados
         messages_to_show = []
-        for msg_data in self.message_history[-available_height:]:
-            # Recrear el mensaje formateado
+        for msg_data in self.message_history:
             formatted = self.format_message(
                 msg_data["component"],
                 msg_data["message"],
@@ -338,47 +471,50 @@ class ConsoleHandler:
                 msg_data.get("details")
             )
             messages_to_show.append(formatted)
-        
+
         if not messages_to_show:
             messages_to_show = [Text("No messages in history...", style="dim white")]
-        
-        # Crear layout
-        layout = Layout()
-        layout.split_column(
-            Layout(self.create_header("Message History", f"Showing last {len(messages_to_show)} messages"), 
-                   name="header", size=4),
-            Layout(name="main"),
-            Layout(self.create_footer([
-                ("↑↓", "Scroll"),
-                ("PgUp/PgDn", "Page"),
-                ("Home/End", "Top/Bottom"),
-                ("Esc", "Exit")
-            ]), name="footer", size=3)
-        )
-        
-        # Contenido principal
-        content_group = Group(*messages_to_show)
-        content_panel = Panel(
-            content_group,
-            title="[bold green]Message History[/bold green]",
-            border_style="green",
-            padding=(0, 1)
-        )
-        
-        layout["main"].update(content_panel)
-        
-        # Mostrar layout
-        self.console.print(layout)
-        
-        if show_help:
-            self.console.print("\n[dim]Press any key to continue...[/dim]")
-            input()
+
+        # Determinar altura de terminal y ventana de scroll
+        terminal_height = self.console.size.height
+        window_size = max(5, terminal_height - 4)  # 4 líneas para controles y título
+        scroll_pos = max(0, len(messages_to_show) - window_size)
+
+        while True:
+            self.clear_console()
+            self.console.print(f"[bold blue]{title}[/bold blue]  ([yellow]↑↓ PgUp/PgDn Home/End Esc[/yellow])")
+            self.console.print("-" * self.console.size.width)
+            window = messages_to_show[scroll_pos:scroll_pos+window_size]
+            for msg in window:
+                self.console.print(msg)
+            self.console.print("-" * self.console.size.width)
+            self.console.print(
+                f"[dim]Scroll: {scroll_pos+1}-{min(scroll_pos+window_size, len(messages_to_show))} / {len(messages_to_show)}[/dim]"
+            )
+            key = get_key()
+            if key == "up":
+                if scroll_pos > 0:
+                    scroll_pos -= 1
+            elif key == "down":
+                if scroll_pos < max(0, len(messages_to_show) - window_size):
+                    scroll_pos += 1
+            elif key == "pgup":
+                scroll_pos = max(0, scroll_pos - window_size)
+            elif key == "pgdn":
+                scroll_pos = min(max(0, len(messages_to_show) - window_size), scroll_pos + window_size)
+            elif key == "home":
+                scroll_pos = 0
+            elif key == "end":
+                scroll_pos = max(0, len(messages_to_show) - window_size)
+            elif key == "esc" or key == "enter":
+                break
+            # else: ignorar otras teclas
 
     def create_status_dashboard(self, 
                                components_status: Dict[str, Dict[str, Any]],
                                title: str = "System Status Dashboard"):
         """
-        Crea un dashboard de estado del sistema con layout fijo.
+        Creates a system status dashboard with fixed layout.
         """
         layout = Layout()
         layout.split_column(
@@ -432,7 +568,7 @@ class ConsoleHandler:
                                status: str, 
                                additional_info: Optional[Dict[str, Any]] = None):
         """
-        Imprime estado de conexión con formato especial.
+        Prints connection status with special formatting.
         """
         status_styles = {
             "connecting": MessageType.INFO,
@@ -460,7 +596,7 @@ class ConsoleHandler:
                        ports: List[Dict[str, Any]],
                        additional_info: Optional[str] = None):
         """
-        Imprime información sobre puertos con tabla formateada.
+        Prints information about ports with formatted table.
         """
         # Mensaje principal
         msg = f"{action} {len(ports)} port(s)"
@@ -504,7 +640,7 @@ class ConsoleHandler:
                                  server_uri: str, 
                                  capabilities: Dict[str, Any]):
         """
-        Imprime capacidades del servidor con formato especial.
+        Prints server capabilities with special formatting.
         """
         self.print_message(component, f"Server capabilities for {server_uri}", MessageType.INFO)
         
@@ -544,7 +680,7 @@ class ConsoleHandler:
                          error_message: str, 
                          suggestions: Optional[List[str]] = None):
         """
-        Imprime panel de error con sugerencias.
+        Prints error panel with suggestions.
         """
         content = Text()
         content.append(f"❌ {error_message}\n", style="bold red")
@@ -578,7 +714,7 @@ class ConsoleHandler:
                            component: str,
                            status_data: Dict[str, Any]):
         """
-        Imprime resumen de estado con panel formateado.
+        Prints status summary with formatted panel.
         """
         content = Text()
         
@@ -619,7 +755,7 @@ class ConsoleHandler:
                            msg_type: Optional[MessageType] = None,
                            last_n: Optional[int] = None) -> List[Dict[str, Any]]:
         """
-        Obtiene historial de mensajes filtrado.
+        Gets filtered message history.
         """
         filtered_history = self.message_history
         
@@ -635,66 +771,79 @@ class ConsoleHandler:
         return filtered_history
 
     def clear_history(self):
-        """Limpia el historial de mensajes."""
+        """Clears the message history."""
         self.message_history.clear()
 
-# Instancia global del manejador de consola
+# Global instance of the console handler
 console_handler = ConsoleHandler()
 
-# Funciones de conveniencia actualizadas
+# Updated convenience functions
 def start_live_console(title: str = "NPM Stream Manager", subtitle: str = "Live Console"):
-    """Inicia la consola en vivo con scroll"""
+    """Starts the live console with scroll"""
     console_handler.start_live_mode(title, subtitle)
 
 def stop_live_console():
-    """Detiene la consola en vivo"""
+    """Stops the live console"""
     console_handler.stop_live_mode()
 
 def show_message_history():
-    """Muestra el historial de mensajes en formato scrollable"""
+    """Shows the message history in scrollable format"""
     console_handler.show_scrollable_console()
 
 def show_status_dashboard(components_status: Dict[str, Dict[str, Any]]):
-    """Muestra dashboard de estado del sistema"""
+    """Shows system status dashboard"""
     layout = console_handler.create_status_dashboard(components_status)
     console_handler.console.print(layout)
 
 def ws_info(component: str, message: str, details: Optional[Dict[str, Any]] = None):
-    """Mensaje informativo WebSocket"""
-    console_handler.print_message(component, message, MessageType.INFO, details)
+    """WebSocket informational message"""
+    console_handler.print_message(component, message, MessageType.INFO, details, interpret_markup=True)
+    ensure_log_file()
+    append_to_log(f"[INFO] [{component}] {console_handler._strip_markup(message)} - {details if details else ''}")
 
 def ws_success(component: str, message: str, details: Optional[Dict[str, Any]] = None):
-    """Mensaje de éxito WebSocket"""
-    console_handler.print_message(component, message, MessageType.SUCCESS, details)
+    """WebSocket success message"""
+    console_handler.print_message(component, message, MessageType.SUCCESS, details, interpret_markup=True)
+    ensure_log_file()
+    append_to_log(f"[SUCCESS] [{component}] {console_handler._strip_markup(message)} - {details if details else ''}")
 
 def ws_warning(component: str, message: str, details: Optional[Dict[str, Any]] = None):
-    """Mensaje de advertencia WebSocket"""
-    console_handler.print_message(component, message, MessageType.WARNING, details)
+    """WebSocket warning message"""
+    console_handler.print_message(component, message, MessageType.WARNING, details, interpret_markup=True)
+    ensure_log_file()
+    append_to_log(f"[WARNING] [{component}] {console_handler._strip_markup(message)} - {details if details else ''}")
 
 def ws_error(component: str, message: str, details: Optional[Dict[str, Any]] = None, 
              suggestions: Optional[List[str]] = None):
-    """Mensaje de error WebSocket"""
+    """WebSocket error message"""
     if suggestions:
         console_handler.print_error_panel(component, "Error", message, suggestions)
+        # Para paneles de error, también guardar el mensaje limpio
+        clean_msg = console_handler._strip_markup(message)
     else:
-        console_handler.print_message(component, message, MessageType.ERROR, details)
+        console_handler.print_message(component, message, MessageType.ERROR, details, interpret_markup=True)
+        clean_msg = console_handler._strip_markup(message)
+    ensure_log_file()
+    append_to_log(f"[ERROR] [{component}] {clean_msg} - {details if details else ''}")
 
 def ws_connection(component: str, uri: str, status: str, info: Optional[Dict[str, Any]] = None):
-    """Estado de conexión WebSocket"""
+    """WebSocket connection status"""
     console_handler.print_connection_status(component, uri, status, info)
 
 def ws_ports(component: str, action: str, ports: List[Dict[str, Any]], info: Optional[str] = None):
-    """Información de puertos WebSocket"""
+    """WebSocket port information"""
     console_handler.print_port_info(component, action, ports, info)
 
 def ws_capabilities(component: str, uri: str, capabilities: Dict[str, Any]):
-    """Capacidades del servidor WebSocket"""
+    """WebSocket server capabilities"""
     console_handler.print_server_capabilities(component, uri, capabilities)
 
 def ws_status(component: str, status_data: Dict[str, Any]):
-    """Resumen de estado WebSocket"""
+    """WebSocket status summary"""
     console_handler.print_status_summary(component, status_data)
 
 def clear_console():
-    """Limpia la consola"""
+    """Clears the console"""
+    console_handler.clear_console()
+    """Clears the console"""
     console_handler.clear_console()

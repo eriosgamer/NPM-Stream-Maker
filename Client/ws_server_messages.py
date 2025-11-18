@@ -29,6 +29,8 @@ from Wireguard import wireguard_tools as wg_tools
 from Core import message_handler as msg_handler
 from Config import config as cfg
 from WebSockets import websocket_config as ws_config
+from Client import ws_client_main_thread as wsc
+from UI.console_handler import ws_info, ws_error, ws_success, ws_warning
 
 # Set to keep track of ports already sent to the server
 sent_ports = set()
@@ -50,19 +52,17 @@ async def handle_server_messages(websocket):
         async for message in websocket:
             try:
                 data = json.loads(message)
-                await msg_handler.handle_server_message(data)
+                message_type = data.get("type")
+                if message_type and message_type.startswith("client_"):
+                    await msg_handler.handle_server_message(data)
             except json.JSONDecodeError as e:
-                console.print(
-                    f"[bold red][WS_CLIENT][/bold red] Invalid JSON received: {e}")
+                ws_error("[WS_CLIENT]", f"Invalid JSON received: {e}")
             except Exception as e:
-                console.print(
-                    f"[bold red][WS_CLIENT][/bold red] Error handling server message: {e}")
+                ws_error("[WS_CLIENT]", f"Error handling server message: {e}")
     except websockets.ConnectionClosed:
-        console.print(
-            "[bold yellow][WS_CLIENT][/bold yellow] Server connection closed")
+        ws_info("[WS_CLIENT]", "Server connection closed")
     except Exception as e:
-        console.print(
-            f"[bold red][WS_CLIENT][/bold red] Error in message handler: {e}")
+        ws_error("[WS_CLIENT]", f"Error in message handler: {e}")
 
 # =========================
 # Port conflict notification
@@ -79,11 +79,9 @@ async def send_port_conflict_notification(websocket, conflict_info):
             "timestamp": time.time()
         }
         await websocket.send(json.dumps(message))
-        console.print(
-            f"[bold yellow][WS_CLIENT][/bold yellow] Sent port conflict notification: {conflict_info}")
+        ws_info("[WS_CLIENT]", f"Sent port conflict notification: {conflict_info}")
     except Exception as e:
-        console.print(
-            f"[bold red][WS_CLIENT][/bold red] Error sending conflict notification: {e}")
+        ws_error("[WS_CLIENT]", f"Error sending conflict notification: {e}")
 
 # =========================
 # Broadcast message sender
@@ -108,11 +106,9 @@ async def send_broadcast_message(websocket, message_type, message_data):
         }
 
         await websocket.send(json.dumps(message))
-        console.print(
-            f"[bold cyan][WS_CLIENT][/bold cyan] Sent broadcast message: {message_type}")
+        ws_info("[WS_CLIENT]", f"Sent broadcast message: {message_type}")
     except Exception as e:
-        console.print(
-            f"[bold red][WS_CLIENT][/bold red] Error sending broadcast message: {e}")
+        ws_error("[WS_CLIENT]", f"Error sending broadcast message: {e}")
 
 # =========================
 # Sequential port sending logic
@@ -140,13 +136,13 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
         hostname: Hostname of the client.
         new_ports: Set of new ports to send.
     """
-    console.print(
-        f"[bold cyan][WS_CLIENT][/bold cyan] Starting client task for {ws_config.uri} (first server: {ws_config.is_first_server})")
+    ws_info("[WS_CLIENT]", f"Starting client task for {ws_config.uri} (first server: {ws_config.is_first_server})")
+
+    max_connection_errors = 5  # Set a default or configurable value
 
     while True:
         try:
-            console.print(
-                f"[bold cyan][WS_CLIENT][/bold cyan] Connecting to {ws_config.uri}...")
+            ws_info("[WS_CLIENT]", f"Connecting to {ws_config.uri}...")
 
             async with websockets.connect(
                 ws_config.uri,
@@ -158,8 +154,7 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
                 compression=None
             ) as websocket:
                 connection_errors = 0  # Reset error count on successful connection
-                console.print(
-                    f"[bold green][WS_CLIENT][/bold green] Connected to {ws_config.uri}")
+                ws_success("[WS_CLIENT]", f"Connected to {ws_config.uri}")
 
                 # Send token validation first
                 token_data = {"token": token}
@@ -170,24 +165,20 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
                     response_msg = await asyncio.wait_for(websocket.recv(), timeout=10)
                     response = json.loads(response_msg)
                     if response.get("status") != "ok":
-                        console.print(
-                            f"[bold red][WS_CLIENT][/bold red] Token validation failed for {ws_config.uri}")
+                        ws_error("[WS_CLIENT]", f"Token validation failed for {ws_config.uri}")
                         continue
-                    console.print(
-                        f"[bold green][WS_CLIENT][/bold green] Token validated for {ws_config.uri}")
+                    ws_success("[WS_CLIENT]", f"Token validated for {ws_config.uri}")
                 except Exception as e:
-                    console.print(
-                        f"[bold red][WS_CLIENT][/bold red] Token validation error for {ws_config.uri}: {e}")
+                    ws_error("[WS_CLIENT]", f"Token validation error for {ws_config.uri}: {e}")
                     continue
 
                 # Only process ports if this is the first server
                 if not ws_config.is_first_server:
-                    console.print(
-                        f"[bold blue][WS_CLIENT][/bold blue] This is not the first server ({ws_config.uri}), waiting for port forwarding from first server...")
+                    ws_info("[WS_CLIENT]", f"This is not the first server ({ws_config.uri}), waiting for port forwarding from first server...")
 
                     # Keep connection alive but don't actively scan ports
                     while True:
-                        await asyncio.sleep(ws_config.ping_interval)
+                        await asyncio.sleep(getattr(websocket, "ping_interval", 60))  # Wait for ping interval
                         # Handle any incoming messages (like port assignments)
                         try:
                             # Non-blocking check for messages
@@ -196,42 +187,35 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
                         except asyncio.TimeoutError:
                             pass  # No message, continue
                         except Exception as e:
-                            console.print(
-                                f"[bold yellow][WS_CLIENT][/bold yellow] Error handling message on {ws_config.uri}: {e}")
+                            ws_error("[WS_CLIENT]", f"Error handling message on {ws_config.uri}: {e}")
 
                     return  # Exit this task for non-first servers
 
                 # Main loop (only for first server)
                 while True:
-                    console.print(
-                        f"[bold cyan][WS_CLIENT][/bold cyan] Checking listening ports for first server {ws_config.uri}...")
+                    ws_info("[WS_CLIENT]", f"Checking listening ports for first server {ws_config.uri}...")
                     current_ports = port_scanner.get_listening_ports_with_proto()
                     allowed_and_listening = [
-                        (port, proto) for port, proto in current_ports if port in cfg.allowed_ports]
+                        (port, proto) for port, proto in current_ports if port in wsc.allowed_ports]
 
-                    console.print(
-                        f"[bold cyan][WS_CLIENT][/bold cyan] Detected ports: {len(current_ports)}")
-                    console.print(
-                        f"[bold cyan][WS_CLIENT][/bold cyan] Allowed and listening ports: {len(allowed_and_listening)}")
+                    ws_info("[WS_CLIENT]", f"Detected ports: {len(current_ports)}")
+                    ws_info("[WS_CLIENT]", f"Allowed and listening ports: {len(allowed_and_listening)}")
 
                     # Check for new ports
                     current_port_set = set(allowed_and_listening)
                     new_ports = current_port_set - sent_ports
 
                     if new_ports:
-                        console.print(
-                            f"[bold cyan][WS_CLIENT][/bold cyan] Found {len(new_ports)} new ports - starting sequential processing...")
+                        ws_info("[WS_CLIENT]", f"Found {len(new_ports)} new ports - starting sequential processing...")
                         success = await send_ports_to_server_sequential(websocket, token, local_ip, hostname, new_ports)
 
                         if success:
                             sent_ports.update(new_ports)
                             for port, proto in new_ports:
                                 port_last_seen[(port, proto)] = time.time()
-                            console.print(
-                                f"[bold green][WS_CLIENT][/bold green] Successfully processed {len(new_ports)} new ports via sequential flow")
+                            ws_info("[WS_CLIENT]", f"Successfully processed {len(new_ports)} new ports via sequential flow")
                         else:
-                            console.print(
-                                f"[bold red][WS_CLIENT][/bold red] Failed to process ports via sequential flow")
+                            ws_error("[WS_CLIENT]", f"Failed to process ports via sequential flow")
 
                     # Update last seen times for current ports
                     current_time = time.time()
@@ -241,39 +225,35 @@ async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, 
                     # Check for inactive ports
                     inactive_ports = []
                     for (port, proto), last_seen in list(port_last_seen.items()):
-                        if current_time - last_seen > cfg.inactive_timeout:
+                        if current_time - last_seen > wsc.inactive_timeout:
                             inactive_ports.append(
                                 {"puerto": port, "protocolo": proto})
                             del port_last_seen[(port, proto)]
                             sent_ports.discard((port, proto))
 
                     if inactive_ports:
-                        console.print(
-                            f"[bold yellow][WS_CLIENT][/bold yellow] Removing {len(inactive_ports)} inactive ports")
+                        ws_warning("[WS_CLIENT]", f"Removing {len(inactive_ports)} inactive ports")
                         remove_data = {
+                            "type": "remove_ports",
                             "token": token,
                             "remove_ports": inactive_ports
                         }
                         await websocket.send(json.dumps(remove_data))
 
                     # Wait before next check
-                    console.print(
-                        f"[bold cyan][WS_CLIENT][/bold cyan] Waiting {ws_config.ping_interval} seconds before next check...")
-                    await asyncio.sleep(ws_config.ping_interval)
+                    ws_info("[WS_CLIENT]", f"Waiting {getattr(websocket, 'ping_interval', 60)} seconds before next check...")
+                    await asyncio.sleep(getattr(websocket, 'ping_interval', 60))
 
         except websockets.exceptions.ConnectionClosed as e:
             connection_errors += 1
-            console.print(
-                f"[bold red][WS_CLIENT][/bold red] Connection to {ws_config.uri} closed: {e}")
+            ws_error("[WS_CLIENT]", f"Connection to {ws_config.uri} closed: {e}")
 
         except Exception as e:
             connection_errors += 1
-            console.print(
-                f"[bold red][WS_CLIENT][/bold red] Error in main loop for {ws_config.uri} (error {connection_errors}): {e}")
+            ws_error("[WS_CLIENT]", f"Error in connection to {ws_config.uri}: {e}")
 
-        if connection_errors >= ws_config.max_connection_errors:
-            console.print(
-                f"[bold red][WS_CLIENT][/bold red] Too many connection errors for {ws_config.uri}, stopping...")
+        if connection_errors >= max_connection_errors:
+            ws_error("[WS_CLIENT]", f"Too many connection errors for {ws_config.uri}, stopping...")
             break
 
         # Wait before reconnection

@@ -26,9 +26,7 @@ import websockets
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from WebSockets import diagnostics
-
-
-console = Console()
+from UI.console_handler import ws_info, ws_error, ws_warning
 
 
 def get_peer_ip_for_client_stream():
@@ -37,8 +35,7 @@ def get_peer_ip_for_client_stream():
     Used to detect active peers in the WireGuard network.
     """
     if not cfg.FCNTL_AVAILABLE:
-        console.print(
-            "[bold yellow][STREAM_MANAGER][/bold yellow] fcntl not available (Windows), skipping WireGuard peer detection")
+        ws_warning("[STREAM_MANAGER]", "fcntl not available (Windows), skipping WireGuard peer detection")
         return None
 
     try:
@@ -130,14 +127,14 @@ async def send_approved_ports_to_wg_servers(approved_ports, local_ip, hostname):
     
     # Skip the first server (non-WG) and send to remaining servers (WG)
     if len(uri_token_pairs) <= 1:
-        console.print(f"[bold blue][WS_CLIENT][/bold blue] No WireGuard servers configured, skipping WG forwarding")
+        ws_info("[WS_CLIENT]", "No WireGuard servers configured, skipping WG forwarding")
         return
     
     wg_servers = uri_token_pairs[1:]  # Skip first server
     
     for uri, token in wg_servers:
         try:
-            console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Sending approved ports to WG server: {uri}")
+            ws_info("[WS_CLIENT]", f"Sending approved ports to WG server: {uri}")
             
             async with websockets.connect(uri, ping_timeout=10) as wg_websocket:
                 # Send token first
@@ -149,11 +146,12 @@ async def send_approved_ports_to_wg_servers(approved_ports, local_ip, hostname):
                 token_result = json.loads(token_response)
                 
                 if token_result.get("status") != "ok":
-                    console.print(f"[bold red][WS_CLIENT][/bold red] Token validation failed for WG server {uri}")
+                    ws_error("[WS_CLIENT]", f"Token validation failed for WG server {uri}")
                     continue
                 
                 # Send pre-approved ports
                 wg_data = {
+                    "type": "conflict_resolution_ports",
                     "ip": local_ip,
                     "hostname": hostname,
                     "token": token,
@@ -169,12 +167,12 @@ async def send_approved_ports_to_wg_servers(approved_ports, local_ip, hostname):
                 wg_response = json.loads(wg_response_msg)
                 
                 if wg_response.get("status") == "ok":
-                    console.print(f"[bold green][WS_CLIENT][/bold green] WG server {uri} processed approved ports successfully")
+                    ws_info("[WS_CLIENT]", f"WG server {uri} processed approved ports successfully")
                 else:
-                    console.print(f"[bold red][WS_CLIENT][/bold red] WG server {uri} error: {wg_response.get('msg', 'unknown')}")
-                    
+                    ws_error("[WS_CLIENT]", f"WG server {uri} error: {wg_response.get('msg', 'unknown')}")
+
         except Exception as e:
-            console.print(f"[bold red][WS_CLIENT][/bold red] Failed to send approved ports to WG server {uri}: {e}")
+            ws_error("[WS_CLIENT]", f"Failed to send approved ports to WG server {uri}: {e}")
 
 
 # Copied
@@ -183,14 +181,14 @@ async def send_approved_ports_to_wireguard_servers(approved_ports, local_ip, hos
     Send the list of pre-approved ports to all specified WireGuard servers.
     """
     if not approved_ports or not wireguard_servers:
-        console.print(f"[bold blue][WS_CLIENT][/bold blue] No ports to send or no WireGuard servers configured")
+        ws_warning("[WS_CLIENT]", "No ports to send or no WireGuard servers configured")
         return
 
-    console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Sending {len(approved_ports)} approved ports to {len(wireguard_servers)} WireGuard servers...")
+    ws_info("[WS_CLIENT]", f"Sending {len(approved_ports)} approved ports to {len(wireguard_servers)} WireGuard servers...")
 
     for uri, token, capabilities in wireguard_servers:
         try:
-            console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Sending to WireGuard server: {uri}")
+            ws_info("[WS_CLIENT]", f"Sending to WireGuard server: {uri}")
 
             async with websockets.connect(uri, ping_timeout=15) as websocket:
                 # Send token first
@@ -202,11 +200,12 @@ async def send_approved_ports_to_wireguard_servers(approved_ports, local_ip, hos
                 token_result = json.loads(token_response)
 
                 if token_result.get("status") != "ok":
-                    console.print(f"[bold red][WS_CLIENT][/bold red] Token validation failed for WG server {uri}")
+                    ws_error("[WS_CLIENT]", f"Token validation failed for WG server {uri}")
                     continue
 
                 # Send pre-approved ports
                 wg_data = {
+                    "type": "conflict_resolution_ports",
                     "ip": local_ip,
                     "hostname": hostname,
                     "token": token,
@@ -222,12 +221,12 @@ async def send_approved_ports_to_wireguard_servers(approved_ports, local_ip, hos
                 wg_response = json.loads(wg_response_msg)
 
                 if wg_response.get("status") == "ok":
-                    console.print(f"[bold green][WS_CLIENT][/bold green] ✓ WireGuard server {uri} processed ports successfully")
+                    ws_info("[WS_CLIENT]", f"✓ WireGuard server {uri} processed ports successfully")
                 else:
-                    console.print(f"[bold red][WS_CLIENT][/bold red] ✗ WireGuard server {uri} error: {wg_response.get('msg', 'unknown')}")
+                    ws_error("[WS_CLIENT]", f"✗ WireGuard server {uri} error: {wg_response.get('msg', 'unknown')}")
 
         except Exception as e:
-            console.print(f"[bold red][WS_CLIENT][/bold red] Failed to send to WireGuard server {uri}: {e}")
+            ws_error("[WS_CLIENT]", f"Failed to send to WireGuard server {uri}: {e}")
 
 # Copied
 def wireguard_present():
@@ -241,7 +240,7 @@ def wireguard_present():
     except FileNotFoundError:
         return False
     except Exception as e:
-        console.print(f"[bold yellow][WS][/bold yellow] Error checking WireGuard: {e}")
+        ws_warning("[WS_CLIENT]", f"Error checking WireGuard: {e}")
         return False
 
 
@@ -251,7 +250,7 @@ def get_local_wg_ip(interface="wg0"):
     Get the local WireGuard interface IP address (e.g., 10.10.0.1).
     """
     if not cfg.FCNTL_AVAILABLE:
-        console.print("[bold yellow][WS][/bold yellow] fcntl not available (Windows), skipping WireGuard IP detection")
+        ws_warning("[WS_CLIENT]", "fcntl not available (Windows), skipping WireGuard IP detection")
         return None
 
     try:

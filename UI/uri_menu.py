@@ -11,6 +11,7 @@ from rich.layout import Layout
 # Add the parent directory to sys.path to allow importing modules from Config
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import ws_config_handler as WebSocketConfig
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 # Add platform-specific imports for key handling
 if os.name == 'nt':  # Windows
@@ -141,7 +142,16 @@ def create_uri_table_content(uris, tokens, terminal_width, terminal_height):
     else:
         table.add_row("--", "[dim]No URIs configured[/dim]", "[dim]--[/dim]")
     
-    return table
+    # Mostrar la tabla en consola y guardar en log si se usa en logging
+    from UI.console_handler import console_handler
+    import io
+    log_buffer = io.StringIO()
+    from rich.console import Console as RichConsole
+    log_console = RichConsole(file=log_buffer, force_terminal=True, color_system=None)
+    log_console.print(table)
+    table_text = log_buffer.getvalue()
+    console_handler.console.print(table)
+    return table_text
 
 def create_uri_menu_content(menu_options, selected_index, uris_available):
     """
@@ -261,22 +271,22 @@ def edit_ws_uris_menu(console):
                 clear_console()
                 
                 if action == "add":
-                    console.print("[bold cyan]Adding new WebSocket URI[/bold cyan]\n")
+                    ws_info("[WS_CLIENT]", "[bold cyan]Adding new WebSocket URI[/bold cyan]\n")
                     new_uri = Prompt.ask("[bold cyan]Enter new WebSocket URI")
                     new_token = Prompt.ask("[bold cyan]Enter token for this URI")
                     if new_uri:
                         uris.append(new_uri.strip())
                         tokens.append(new_token.strip())
-                        console.print(f"[green]Added: {new_uri}[/green]")
+                        ws_info("[WS_CLIENT]", f"[green]Added: {new_uri}[/green]")
                     input("\nPress Enter to continue...")
 
                 elif action == "edit":
-                    console.print("[bold cyan]Editing existing URI[/bold cyan]\n")
-                    
+                    ws_info("[WS_CLIENT]", "[bold cyan]Editing existing URI[/bold cyan]\n")
+
                     # Show current URIs in a compact format
                     for idx, uri in enumerate(uris, 1):
                         display_uri = uri[:50] + "..." if len(uri) > 50 else uri
-                        console.print(f"[cyan]{idx}.[/cyan] {display_uri}")
+                        ws_info("[WS_CLIENT]", f"[cyan]{idx}.[/cyan] {display_uri}")
                     
                     try:
                         idx = int(Prompt.ask("[bold cyan]Enter index to edit", choices=[str(i) for i in range(1, len(uris)+1)])) - 1
@@ -284,46 +294,61 @@ def edit_ws_uris_menu(console):
                         new_token = Prompt.ask(f"[bold cyan]Edit token", default=tokens[idx])
                         uris[idx] = new_uri.strip()
                         tokens[idx] = new_token.strip()
-                        console.print(f"[green]Updated URI at index {idx + 1}[/green]")
+                        ws_info("[WS_CLIENT]", f"[green]Updated URI at index {idx + 1}[/green]")
                     except (ValueError, IndexError):
-                        console.print("[red]Invalid selection[/red]")
+                        ws_error("[WS_CLIENT]", "[red]Invalid selection[/red]")
                     input("\nPress Enter to continue...")
 
                 elif action == "remove":
-                    console.print("[bold cyan]Removing URI[/bold cyan]\n")
-                    
+                    ws_info("[WS_CLIENT]", "[bold cyan]Removing URI[/bold cyan]\n")
+
                     # Show current URIs in a compact format
                     for idx, uri in enumerate(uris, 1):
                         display_uri = uri[:50] + "..." if len(uri) > 50 else uri
-                        console.print(f"[cyan]{idx}.[/cyan] {display_uri}")
-                    
+                        ws_info("[WS_CLIENT]", f"[cyan]{idx}.[/cyan] {display_uri}")
+
                     try:
                         idx = int(Prompt.ask("[bold cyan]Enter index to remove", choices=[str(i) for i in range(1, len(uris)+1)])) - 1
                         removed_uri = uris.pop(idx)
                         removed_token = tokens.pop(idx)
                         display_removed = removed_uri[:50] + "..." if len(removed_uri) > 50 else removed_uri
-                        console.print(f"[green]Removed: {display_removed}[/green]")
+                        ws_info("[WS_CLIENT]", f"[green]Removed: {display_removed}[/green]")
                     except (ValueError, IndexError):
-                        console.print("[red]Invalid selection[/red]")
+                        ws_error("[WS_CLIENT]", "[red]Invalid selection[/red]")
                     input("\nPress Enter to continue...")
 
                 elif action == "save":
                     WebSocketConfig.save_ws_config(uris=uris, tokens=tokens)
-                    console.print("[green]URIs and tokens saved to .env[/green]")
+                    # --- NUEVO: Recargar la configuración global en memoria ---
+                    # Forzar recarga en los módulos que usan variables globales
+                    if hasattr(WebSocketConfig, "_uris"):
+                        delattr(WebSocketConfig, "_uris")
+                    if hasattr(WebSocketConfig, "_tokens"):
+                        delattr(WebSocketConfig, "_tokens")
+                    if hasattr(WebSocketConfig, "_server_token"):
+                        delattr(WebSocketConfig, "_server_token")
+                    # También recargar en websocket_config si es necesario
+                    try:
+                        import WebSockets.websocket_config as ws_config
+                        ws_config.uris, _, ws_config.uri = WebSocketConfig.get_ws_config()
+                        ws_config.uri = ws_config.uris[0] if ws_config.uris else None
+                    except Exception:
+                        pass
+                    ws_info("[WS_CLIENT]", "[green]URIs and tokens saved to .env and recargados en memoria[/green]")
                     input("\nPress Enter to return to main menu...")
                     return
 
                 elif action == "cancel":
-                    console.print("[yellow]No changes saved.[/yellow]")
+                    ws_info("[WS_CLIENT]", "[yellow]No changes saved.[/yellow]")
                     input("\nPress Enter to return to main menu...")
                     return
                     
             elif key == 'esc':
                 clear_console()
-                console.print("[yellow]No changes saved.[/yellow]")
+                ws_info("[WS_CLIENT]", "[yellow]No changes saved.[/yellow]")
                 input("\nPress Enter to return to main menu...")
                 return
                 
         except KeyboardInterrupt:
-            console.print("\n[bold yellow]Exiting...[/bold yellow]")
+            ws_info("[WS_CLIENT]", "\n[bold yellow]Exiting...[/bold yellow]")
             return

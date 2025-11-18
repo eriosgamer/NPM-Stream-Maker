@@ -1,5 +1,6 @@
 import sys, os
 from rich.console import Console
+from UI.console_handler import ws_info, ws_error
 
 # Initialize a rich console for colored output
 console = Console()
@@ -25,17 +26,17 @@ async def discover_server_types():
     uri_token_pairs = diagnostics.get_ws_uris_and_tokens()
 
     if not uri_token_pairs:
-        console.print("[bold red][WS_CLIENT][/bold red] No servers configured")
+        ws_error("[WS_CLIENT]", "No servers configured")
         return [], []
 
-    console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Discovering capabilities of {len(uri_token_pairs)} servers...")
+    ws_info("[WS_CLIENT]", f"Discovering capabilities of {len(uri_token_pairs)} servers...")
 
     conflict_resolution_servers = []
     wireguard_servers = []
 
     # Iterate through each server and query its capabilities
     for i, (uri, token) in enumerate(uri_token_pairs, 1):
-        console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Querying server {i}/{len(uri_token_pairs)}: {uri}")
+        ws_info("[WS_CLIENT]", f"Querying server {i}/{len(uri_token_pairs)}: {uri}")
 
         try:
             # Query the server for its capabilities
@@ -45,26 +46,26 @@ async def discover_server_types():
                 # Check if the server is a conflict resolution server
                 if capabilities.get("conflict_resolution_server", False):
                     conflict_resolution_servers.append((uri, token, capabilities))
-                    console.print(f"[bold yellow][WS_CLIENT][/bold yellow] ✓ Conflict resolution server: {uri}")
+                    ws_info("[WS_CLIENT]", f"✓ Conflict resolution server: {uri}")
                 # Check if the server has WireGuard capability
                 elif capabilities.get("has_wireguard", False):
                     wireguard_servers.append((uri, token, capabilities))
-                    console.print(f"[bold blue][WS_CLIENT][/bold blue] ✓ WireGuard server: {uri}")
+                    ws_info("[WS_CLIENT]", f"✓ WireGuard server: {uri}")
                 else:
                     # Unknown server type
-                    console.print(f"[bold red][WS_CLIENT][/bold red] ⚠ Unknown server type: {uri}")
-                    console.print(f"[bold white]    Capabilities: {capabilities}[/bold white]")
+                    ws_error("[WS_CLIENT]", f"⚠ Unknown server type: {uri}")
+                    ws_info("[WS_CLIENT]", f"    Capabilities: {capabilities}")
             else:
                 # Failed to get capabilities from the server
-                console.print(f"[bold red][WS_CLIENT][/bold red] ✗ Failed to query: {uri}")
+                ws_error("[WS_CLIENT]", f"✗ Failed to query: {uri}")
 
         except Exception as e:
             # Handle errors during querying
-            console.print(f"[bold red][WS_CLIENT][/bold red] ✗ Error querying {uri}: {e}")
+            ws_error("[WS_CLIENT]", f"✗ Error querying {uri}: {e}")
 
     # Print summary of discovered servers
-    console.print(f"[bold green][WS_CLIENT][/bold green] Discovery complete:")
-    console.print(f"[bold white]  - Conflict resolution servers: {len(conflict_resolution_servers)}[/bold white]")
-    console.print(f"[bold white]  - WireGuard servers: {len(wireguard_servers)}[/bold white]")
+    ws_info("[WS_CLIENT]", f"Discovery complete:")
+    ws_info("[WS_CLIENT]", f"  - Conflict resolution servers: {len(conflict_resolution_servers)}")
+    ws_info("[WS_CLIENT]", f"  - WireGuard servers: {len(wireguard_servers)}")
 
     return conflict_resolution_servers, wireguard_servers

@@ -15,9 +15,7 @@ from Streams import stream_creation as sc
 from Streams import stream_creation_db as stream_db
 from npm import npm_handler as npm
 from Wireguard import wireguard_tools as wg_tools
-from rich.console import Console
-console = Console()
-
+from UI.console_handler import ws_info, ws_error, ws_warning
 # This module provides utility functions for managing WireGuard streams and resolving port conflicts.
 # It interacts with the database, WireGuard interface, and NPM (Nginx Proxy Manager) to automate stream creation and updates.
 
@@ -64,7 +62,7 @@ def get_peer_ip_for_client():
             pass
         return None
     except Exception as e:
-        console.print(f"[bold yellow][WS][/bold yellow] Error finding WireGuard peer: {e}")
+        ws_warning("[WS_CLIENT]", f"Error finding WireGuard peer: {e}")
         return None
 
 def find_existing_port_for_wg_peer(ip, port, proto):
@@ -103,7 +101,7 @@ async def create_wg_conflict_resolution_streams(wg_streams):
 
         for incoming_port, protocol, server_ip, forwarding_port in wg_streams:
             # Create stream: incoming alternative_port → server_ip:alternative_port
-            console.print(f"[bold green][WS][/bold green] Creating WG stream: incoming port {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}")
+            ws_info("[WS_CLIENT]", f"Creating WG stream: incoming port {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}")
 
             # Check if a stream already exists for the incoming port
             conn = sqlite3.connect(cfg.SQLITE_DB_PATH)
@@ -117,7 +115,7 @@ async def create_wg_conflict_resolution_streams(wg_streams):
 
                 if existing:
                     stream_id, current_host, current_port = existing
-                    console.print(f"[bold yellow][WS][/bold yellow] Stream already exists for port {incoming_port} ({protocol}): {current_host}:{current_port}")
+                    ws_warning("[WS_CLIENT]", f"Stream already exists for port {incoming_port} ({protocol}): {current_host}:{current_port}")
 
                     # Only update if it's pointing to a different server or port
                     if current_host != server_ip or current_port != forwarding_port:
@@ -126,13 +124,13 @@ async def create_wg_conflict_resolution_streams(wg_streams):
                             (server_ip, forwarding_port, stream_id)
                         )
                         conn.commit()
-                        console.print(f"[bold cyan][WS][/bold cyan] Updated existing stream {stream_id} for port {incoming_port} to forward to {server_ip}:{forwarding_port}")
+                        ws_info("[WS_CLIENT]", f"Updated existing stream {stream_id} for port {incoming_port} to forward to {server_ip}:{forwarding_port}")
                     else:
-                        console.print(f"[bold blue][WS][/bold blue] Stream {stream_id} for port {incoming_port} already correctly configured")
+                        ws_info("[WS_CLIENT]", f"Stream {stream_id} for port {incoming_port} already correctly configured")
                 else:
                     # Create new stream entry for the incoming port
                     new_entries.append((incoming_port, protocol, server_ip, forwarding_port))
-                    console.print(f"[bold green][WS][/bold green] Queued new stream: {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}")
+                    ws_info("[WS_CLIENT]", f"Queued new stream: {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}")
             finally:
                 conn.close()
 
@@ -145,10 +143,10 @@ async def create_wg_conflict_resolution_streams(wg_streams):
         if new_entries or any(existing for incoming_port, protocol, server_ip, forwarding_port in wg_streams):
             stream_db.sync_streams_conf_with_sqlite()
             npm.reload_npm()
-            console.print(f"[bold green][WS][/bold green] Successfully created/updated {len(new_entries)} WireGuard streams")
+            ws_info("[WS_CLIENT]", f"Successfully created/updated {len(new_entries)} WireGuard streams")
         else:
-            console.print(f"[bold blue][WS][/bold blue] No new WireGuard streams needed, all ports already configured")
+            ws_info("[WS_CLIENT]", f"No new WireGuard streams needed, all ports already configured")
 
     except Exception as e:
-        console.print(f"[bold red][WS][/bold red] Error creating WG streams: {e}")
+        ws_error("[WS_CLIENT]", f"Error creating WG streams: {e}")
         raise

@@ -3,12 +3,14 @@ import os
 import sys
 import websockets
 import json
+from dotenv import load_dotenv
 
 from rich.console import Console
 
 # Add the parent directory to the path to allow importing local modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Client import server_querys as sq
+from UI.console_handler import ws_info, ws_error, ws_warning
 
 console = Console()
 
@@ -17,7 +19,7 @@ def show_websocket_diagnostic():
     """
     Shows detailed WebSocket diagnostic information, including server discovery and flow validation.
     """
-    console.print("\n[bold cyan]🔍 WEBSOCKET DIAGNOSTIC[/bold cyan]")
+    ws_info("[WS_CLIENT]", "\n[bold cyan]🔍 WEBSOCKET DIAGNOSTIC[/bold cyan]")
 
     try:
 
@@ -26,11 +28,10 @@ def show_websocket_diagnostic():
             uri_token_pairs = get_ws_uris_and_tokens()
 
             if not uri_token_pairs:
-                console.print("[bold red]❌ No servers configured[/bold red]")
+                ws_error("[WS_CLIENT]", "[bold red]❌ No servers configured[/bold red]")
                 return
 
-            console.print(
-                f"[bold green]📡 Testing {len(uri_token_pairs)} configured servers...[/bold green]")
+            ws_info("[WS_CLIENT]", f"[bold green]📡 Testing {len(uri_token_pairs)} configured servers...[/bold green]")
 
             conflict_resolution_servers = []
             wireguard_servers = []
@@ -38,7 +39,7 @@ def show_websocket_diagnostic():
 
             # Iterate through each server and test connectivity and capabilities
             for i, (uri, token) in enumerate(uri_token_pairs, 1):
-                console.print(f"\n[bold cyan]🔍 Server {i}: {uri}[/bold cyan]")
+                ws_info("[WS_CLIENT]", f"\n[bold cyan]🔍 Server {i}: {uri}[/bold cyan]")
 
                 # Test basic connectivity
                 try:
@@ -48,8 +49,7 @@ def show_websocket_diagnostic():
                         ping_timeout=30,   # Added ping timeout
                         close_timeout=10   # Added close timeout
                     ) as websocket:
-                        console.print(
-                            "[bold green]  ✅ Connection: SUCCESS[/bold green]")
+                        ws_info("[WS_CLIENT]", "[bold green]  ✅ Connection: SUCCESS[/bold green]")
 
                         # Test token validation by sending the token and waiting for a response
                         token_data = {"token": token}
@@ -58,8 +58,7 @@ def show_websocket_diagnostic():
                         token_result = json.loads(token_response)
 
                         if token_result.get("status") == "ok":
-                            console.print(
-                                "[bold green]  ✅ Token: VALID[/bold green]")
+                            ws_info("[WS_CLIENT]", "[bold green]  ✅ Token: VALID[/bold green]")
 
                             # Query server capabilities (type, WireGuard, conflict resolution, etc.)
                             capabilities = await sq.query_server_capabilities(uri, token)
@@ -72,21 +71,16 @@ def show_websocket_diagnostic():
                                 is_cr = capabilities.get(
                                     "conflict_resolution_server", False)
 
-                                console.print(
-                                    f"[bold green]  ✅ Capabilities: {server_type.upper()}[/bold green]")
-                                console.print(
-                                    f"[bold white]     - WireGuard: {'YES' if has_wg else 'NO'}[/bold white]")
-                                console.print(
-                                    f"[bold white]     - Conflict Resolution: {'YES' if is_cr else 'NO'}[/bold white]")
+                                ws_info("[WS_CLIENT]", f"[bold green]  ✅ Capabilities: {server_type.upper()}[/bold green]")
+                                ws_info("[WS_CLIENT]", f"[bold white]     - WireGuard: {'YES' if has_wg else 'NO'}[/bold white]")
+                                ws_info("[WS_CLIENT]", f"[bold white]     - Conflict Resolution: {'YES' if is_cr else 'NO'}[/bold white]")
 
                                 if has_wg:
                                     wg_ip = capabilities.get("wireguard_ip")
                                     peer_ip = capabilities.get(
                                         "wireguard_peer_ip")
-                                    console.print(
-                                        f"[bold white]     - WG Server IP: {wg_ip or 'N/A'}[/bold white]")
-                                    console.print(
-                                        f"[bold white]     - WG Peer IP: {peer_ip or 'N/A'}[/bold white]")
+                                    ws_info("[WS_CLIENT]", f"[bold white]     - WG Server IP: {wg_ip or 'N/A'}[/bold white]")
+                                    ws_info("[WS_CLIENT]", f"[bold white]     - WG Peer IP: {peer_ip or 'N/A'}[/bold white]")
 
                                 if is_cr:
                                     conflict_resolution_servers.append(
@@ -95,65 +89,60 @@ def show_websocket_diagnostic():
                                     wireguard_servers.append(
                                         (uri, token, capabilities))
                             else:
-                                console.print(
-                                    "[bold red]  ❌ Capabilities: FAILED TO QUERY[/bold red]")
+                                ws_error("[WS_CLIENT]", "  ❌ Capabilities: FAILED TO QUERY")
                                 failed_servers.append(uri)
                         else:
-                            console.print(
-                                "[bold red]  ❌ Token: INVALID[/bold red]")
+                            ws_error("[WS_CLIENT]", "  ❌ Token: INVALID")
                             failed_servers.append(uri)
 
                 except asyncio.TimeoutError:
-                    console.print(
-                        "[bold red]  ❌ Connection: TIMEOUT[/bold red]")
+                    ws_error("[WS_CLIENT]", "  ❌ Connection: TIMEOUT")
                     failed_servers.append(uri)
                 except Exception as e:
-                    console.print(
-                        f"[bold red]  ❌ Connection: ERROR - {e}[/bold red]")
+                    ws_error("[WS_CLIENT]", f"  ❌ Connection: ERROR - {e}")
                     failed_servers.append(uri)
 
             # Print a summary of the discovery process
-            console.print(f"\n[bold cyan]📊 DISCOVERY SUMMARY[/bold cyan]")
-            console.print(
-                f"[bold green]✅ Conflict Resolution Servers: {len(conflict_resolution_servers)}[/bold green]")
+            ws_info("[WS_CLIENT]", f"\n[bold cyan]📊 DISCOVERY SUMMARY[/bold cyan]")
+            ws_info("[WS_CLIENT]", f"[bold green]✅ Conflict Resolution Servers: {len(conflict_resolution_servers)}[/bold green]")
             for uri, _, _ in conflict_resolution_servers:
-                console.print(f"[bold white]   - {uri}[/bold white]")
+                ws_info("[WS_CLIENT]", f"[bold white]   - {uri}[/bold white]")
 
-            console.print(
-                f"[bold blue]✅ WireGuard Servers: {len(wireguard_servers)}[/bold blue]")
+            ws_info("[WS_CLIENT]", f"[bold blue]✅ WireGuard Servers: {len(wireguard_servers)}[/bold blue]")
             for uri, _, _ in wireguard_servers:
-                console.print(f"[bold white]   - {uri}[/bold white]")
+                ws_info("[WS_CLIENT]", f"[bold white]   - {uri}[/bold white]")
 
             if failed_servers:
-                console.print(
-                    f"[bold red]❌ Failed Servers: {len(failed_servers)}[/bold red]")
+                ws_info("[WS_CLIENT]", f"[bold red]❌ Failed Servers: {len(failed_servers)}[/bold red]")
                 for uri in failed_servers:
-                    console.print(f"[bold white]   - {uri}[/bold white]")
+                    ws_info("[WS_CLIENT]", f"[bold white]   - {uri}[/bold white]")
+
+            ws_info("[WS_CLIENT]", f"[bold blue]✅ WireGuard Servers: {len(wireguard_servers)}[/bold blue]")
+            for uri, _, _ in wireguard_servers:
+                ws_info("[WS_CLIENT]", f"[bold white]   - {uri}[/bold white]")
+
+            if failed_servers:
+                ws_info("[WS_CLIENT]", f"[bold red]❌ Failed Servers: {len(failed_servers)}[/bold red]")
+                for uri in failed_servers:
+                    ws_info("[WS_CLIENT]", f"[bold white]   - {uri}[/bold white]")
 
             # Validate the workflow between conflict resolution and WireGuard servers
-            console.print(f"\n[bold cyan]🔄 WORKFLOW VALIDATION[/bold cyan]")
+            ws_info("[WS_CLIENT]", f"\n[bold cyan]🔄 WORKFLOW VALIDATION[/bold cyan]")
             if conflict_resolution_servers and wireguard_servers:
-                console.print(
-                    "[bold green]✅ Complete workflow: CR server → WG servers[/bold green]")
-                console.print(
-                    f"[bold white]   1. Ports sent to: {conflict_resolution_servers[0][0]}[/bold white]")
-                console.print(
-                    f"[bold white]   2. Approved ports forwarded to {len(wireguard_servers)} WG server(s)[/bold white]")
+                ws_info("[WS_CLIENT]", "[bold green]✅ Complete workflow: CR server → WG servers[/bold green]")
+                ws_info("[WS_CLIENT]", f"[bold white]   1. Ports sent to: {conflict_resolution_servers[0][0]}[/bold white]")
+                ws_info("[WS_CLIENT]", f"[bold white]   2. Approved ports forwarded to {len(wireguard_servers)} WG server(s)[/bold white]")
             elif conflict_resolution_servers:
-                console.print(
-                    "[bold yellow]⚠️  Only conflict resolution available (no WG servers)[/bold yellow]")
+                ws_info("[WS_CLIENT]", "[bold yellow]⚠️  Only conflict resolution available (no WG servers)[/bold yellow]")
             elif wireguard_servers:
-                console.print(
-                    "[bold yellow]⚠️  Only WireGuard servers available (no conflict resolution)[/bold yellow]")
+                ws_info("[WS_CLIENT]", "[bold yellow]⚠️  Only WireGuard servers available (no conflict resolution)[/bold yellow]")
             else:
-                console.print(
-                    "[bold red]❌ No functional servers detected[/bold red]")
+                ws_info("[WS_CLIENT]", "[bold red]❌ No functional servers detected[/bold red]")
 
         asyncio.run(run_diagnostic())
 
     except Exception as e:
-        console.print(f"[bold red]❌ Diagnostic failed: {e}[/bold red]")
-
+        ws_error("[WS_CLIENT]", f"[bold red]❌ Diagnostic failed: {e}[/bold red]")
 
 def get_ws_uris_and_tokens():
     """
@@ -163,9 +152,9 @@ def get_ws_uris_and_tokens():
     uris = []
     tokens = []
     env_path = ".env"
-    
-    console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Loading configuration from {env_path}")
-    
+
+    ws_info("[WS_CLIENT]", f"[bold cyan] Loading configuration from {env_path}[/bold cyan]")
+
     # First try environment variables (passed from Control Panel)
     env_uris = os.environ.get("WS_URIS")
     env_tokens = os.environ.get("WS_TOKENS")
@@ -175,28 +164,25 @@ def get_ws_uris_and_tokens():
     if env_tokens:
         tokens = [token.strip() for token in env_tokens.split(",") if token.strip()]
     
-    # If not in environment, read from .env file
+    # If not in environment, read from .env file using dotenv
     if not uris or not tokens:
-        if os.path.exists(env_path):
-            with open(env_path, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith("WS_URIS=") and not uris:
-                        uris_str = line.split("=", 1)[1]
-                        uris = [uri.strip() for uri in uris_str.split(",") if uri.strip()]
-                    elif line.startswith("WS_TOKENS=") and not tokens:
-                        tokens_str = line.split("=", 1)[1]
-                        tokens = [token.strip() for token in tokens_str.split(",") if token.strip()]
-        else:
-            console.print(f"[bold red][WS_CLIENT][/bold red] Configuration file {env_path} not found")
+        load_dotenv(env_path)
+        if not uris:
+            env_uris = os.getenv("WS_URIS")
+            if env_uris:
+                uris = [uri.strip() for uri in env_uris.split(",") if uri.strip()]
+        if not tokens:
+            env_tokens = os.getenv("WS_TOKENS")
+            if env_tokens:
+                tokens = [token.strip() for token in env_tokens.split(",") if token.strip()]
     
     if not uris:
-        console.print("[bold red][WS_CLIENT][/bold red] No WebSocket URIs configured")
-        console.print("[bold yellow]Assuming first startup or server-only usage[/bold yellow]")
+        ws_info("[WS_CLIENT]", "[bold red]❌ No WebSocket URIs configured[/bold red]")
+        ws_info("[WS_CLIENT]", "[bold yellow]⚠️  Assuming first startup or server-only usage[/bold yellow]")
         return []
     
     if not tokens:
-        console.print("[bold red][WS_CLIENT][/bold red] No WebSocket tokens configured")
+        ws_info("[WS_CLIENT]", "[bold red]❌ No WebSocket tokens configured[/bold red]")
         return []
     
     # If only one token, use it for all URIs
@@ -213,11 +199,11 @@ def get_ws_uris_and_tokens():
         tokens = tokens[:len(uris)]
     
     uri_token_pairs = list(zip(uris, tokens))
-    console.print(f"[bold green][WS_CLIENT][/bold green] Configured {len(uri_token_pairs)} URI-token pairs:")
+    ws_info("[WS_CLIENT]", f"[bold green] Configured {len(uri_token_pairs)} URI-token pairs:[/bold green]")
     
     # Show configuration summary (without exposing full tokens)
     for i, (uri, token) in enumerate(uri_token_pairs, 1):
         masked_token = f"{token[:4]}...{token[-4:]}" if len(token) > 8 else "***"
-        console.print(f"[bold white]  {i}. {uri} (token: {masked_token})[/bold white]")
+        ws_info("[WS_CLIENT]", f"[bold white]  {i}. {uri} (token: {masked_token})[/bold white]")
     
     return uri_token_pairs

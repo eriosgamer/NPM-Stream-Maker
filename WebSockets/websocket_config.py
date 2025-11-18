@@ -1,5 +1,7 @@
 import asyncio
 import websockets
+from websockets.exceptions import ConnectionClosedError, InvalidHandshake
+from websockets.datastructures import Headers
 import json
 from rich.prompt import Prompt
 from rich.console import Console
@@ -10,9 +12,16 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import ws_config_handler as WebSocketConfig
 from Config import config as cfg
+from UI.console_handler import ws_error, ws_warning, ws_info
 
 console = Console()
 
+# Global state dictionaries for assigned ports, connected clients, and port conflict resolutions
+assigned_ports = {}
+connected_clients = {}
+port_conflict_resolutions = {}
+uris, _, _ = WebSocketConfig.get_ws_config()
+uri = uris[0] if uris else None
 # This file provides utility functions for managing WebSocket server configuration,
 # testing connections, and persisting state related to assigned ports, connected clients,
 # and port conflict resolutions.
@@ -22,9 +31,8 @@ def get_ws_uri(console):
     Gets the WebSocket server URI from the .env or prompts the user if not configured.
     Saves the URI if it is new.
     """
+    global uri
     # Try to read the URI from .env
-    uris, _, _ = WebSocketConfig.get_ws_config()
-    uri = uris[0] if uris else None
 
     if not uri:
         uri = Prompt.ask(
@@ -58,6 +66,7 @@ def test_ws_connection(uri, token):
             ) as websocket:
                 # Send test message with token for validation
                 test_data = {
+                    "type": "test_connection",
                     "token": token,
                     "test_connection": True,
                     "ip": "control_panel_test",
@@ -73,43 +82,31 @@ def test_ws_connection(uri, token):
                 elif data.get("status") == "error":
                     error_msg = data.get("msg", "Unknown error")
                     if "token" in error_msg.lower():
-                        console.print(
-                            f"[bold red]Token validation failed for {uri}: {error_msg}[/bold red]")
+                        ws_error("[WS_CLIENT]", f"[bold red]Token validation failed for {uri}: {error_msg}[/bold red]")
                     else:
-                        console.print(
-                            f"[bold yellow]Server error for {uri}: {error_msg}[/bold yellow]")
+                        ws_warning("[WS_CLIENT]", f"[bold yellow]Server error for {uri}: {error_msg}[/bold yellow]")
                     return False
                 else:
                     # Any other response might indicate server is working
                     return True
-
-        except websockets.exceptions.InvalidStatusCode as e:
-            if e.status_code == 426:
-                console.print(
-                    f"[bold red]WebSocket upgrade failed (426) for {uri}[/bold red]")
-                console.print(
-                    f"[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]")
-            else:
-                console.print(
-                    f"[bold red]HTTP error {e.status_code} for {uri}[/bold red]")
+        except InvalidHandshake as e:
+            ws_error("[WS_CLIENT]", f"[bold red]WebSocket handshake failed for {uri}: {e}[/bold red]")
+            ws_warning("[WS_CLIENT]", f"[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]")
             return False
         except asyncio.TimeoutError:
-            console.print(
-                f"[bold red]Connection timeout for {uri} (server may be slow to respond)[/bold red]")
+            ws_error("[WS_CLIENT]", f"[bold red]Connection timeout for {uri} (server may be slow to respond)[/bold red]")
             return False
         except websockets.exceptions.ConnectionClosed:
-            console.print(
-                f"[bold red]Connection closed immediately for {uri}[/bold red]")
+            ws_error("[WS_CLIENT]", f"[bold red]Connection closed immediately for {uri}[/bold red]")
             return False
         except Exception as e:
-            console.print(
-                f"[bold red]Connection error for {uri}: {e}[/bold red]")
+            ws_error("[WS_CLIENT]", f"[bold red]Connection error for {uri}: {e}[/bold red]")
             return False
 
     try:
         return asyncio.run(try_connect())
     except Exception as e:
-        console.print(f"[bold red]Async error testing {uri}: {e}[/bold red]")
+        ws_error("[WS_CLIENT]", f"[bold red]Async error testing {uri}: {e}[/bold red]")
         return False
 
 
@@ -128,7 +125,7 @@ def save_state():
         serializable_resolutions[key] = alt_port
     with open(cfg.PORT_CONFLICT_RESOLUTIONS_FILE, "w") as f:
         json.dump(serializable_resolutions, f, indent=2)
-    console.print(f"[bold green][WS][/bold green] Saved {len(port_conflict_resolutions)} port conflict resolutions")
+    ws_info("[WS_CLIENT]", f"[bold green]Saved {len(port_conflict_resolutions)} port conflict resolutions[/bold green]")
 
 # Copied
 def load_state():
@@ -150,6 +147,17 @@ def load_state():
             for key, alt_port in saved_resolutions.items():
                 original_port, protocol, server_ip = key.split("|", 2)
                 port_conflict_resolutions[(int(original_port), protocol, server_ip)] = alt_port
-            console.print(f"[bold green][WS][/bold green] Loaded {len(port_conflict_resolutions)} port conflict resolutions from disk")
+            ws_info("[WS_CLIENT]", f"[bold green]Loaded {len(port_conflict_resolutions)} port conflict resolutions from disk[/bold green]")
         except Exception as e:
-            console.print(f"[bold yellow][WS][/bold yellow] Error loading port conflict resolutions: {e}")
+            ws_warning("[WS_CLIENT]", f"[bold yellow]Error loading port conflict resolutions: {e}[/bold yellow]")
+
+
+def is_first_server():
+    """
+    Checks if the current server is the first one in the list of WebSocket URIs.
+    Returns True if it is the first server, False otherwise.
+    """
+    uris, _, _ = WebSocketConfig.get_ws_config()
+    if not uris:
+        return False
+    return uris[0] == get_ws_uri(console)

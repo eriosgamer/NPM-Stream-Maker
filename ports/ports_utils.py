@@ -1,13 +1,3 @@
-"""
-ports_utils.py
-
-This module provides utility functions for managing and inspecting network ports,
-including checking if a port is in use, finding processes using a port, clearing
-conflict resolution files, and saving WebSocket port assignments.
-
-Intended for use in the NPM Stream Maker project.
-"""
-
 import json
 import time
 from Config import config as cfg
@@ -17,11 +7,22 @@ import sys
 import subprocess
 import platform
 from rich.console import Console
+from UI.console_handler import ws_info, ws_warning, ws_error
 
 console = Console()
 
 # Add the parent directory to sys.path to allow imports from sibling modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+"""
+ports_utils.py
+
+This module provides utility functions for managing and inspecting network ports,
+including checking if a port is in use, finding processes using a port, clearing
+conflict resolution files, and saving WebSocket port assignments.
+
+Intended for use in the NPM Stream Maker project.
+"""
 
 def clear_conflict_resolution_files():
     """
@@ -34,15 +35,12 @@ def clear_conflict_resolution_files():
                 os.remove(file_path)
                 cleared_files.append(file_path)
         except Exception as e:
-            console.print(
-                f"[bold yellow]Warning: Could not clear {file_path}: {e}[/bold yellow]")
+            ws_warning("[WS]", f"Could not clear {file_path}: {e}")
 
     if cleared_files:
-        console.print(
-            f"[bold cyan]🧹 Cleared conflict resolution files: {', '.join(cleared_files)}[/bold cyan]")
+        ws_info("[WS]", f"🧹 Cleared conflict resolution files: {', '.join(cleared_files)}")
     else:
-        console.print(
-            "[bold green]🧹 No conflict resolution files to clear[/bold green]")
+        ws_info("[WS]", "🧹 No conflict resolution files to clear")
 
 def is_port_in_use(port):
     """
@@ -139,8 +137,7 @@ def get_process_using_port(port):
                     except Exception:
                         pass
     except Exception as e:
-        console.print(
-            f"[bold yellow][PORT_DETECTION][/bold yellow] Error detecting processes on port {port}: {e}")
+        ws_warning("[PORT_DETECTION]", f"Error detecting processes on port {port}: {e}")
 
     return processes
 
@@ -172,4 +169,56 @@ def save_ws_port(ip, assigned_port):
         with open(cfg.WS_PORTS_FILE, "w") as f:
             json.dump(data, f, indent=2)
     except Exception as e:
-        console.print(f"[bold red][WS][/bold red] Error saving WS port: {e}")
+        ws_error("[WS]", f"Error saving WS port: {e}")
+
+def load_ws_ports():
+    """
+    Loads the WebSocket ports from the configured WS_PORTS_FILE.
+    Returns a list of dictionaries with 'ip', 'port', and 'timestamp'.
+    """
+    try:
+        if os.path.exists(cfg.WS_PORTS_FILE):
+            with open(cfg.WS_PORTS_FILE, "r") as f:
+                return json.load(f)
+        else:
+            return []
+    except Exception as e:
+        ws_error("[WS]", f"Error loading WS ports: {e}")
+        return []
+
+def port_file_age():
+    """
+    Returns the age of the port file in seconds.
+    If the file does not exist, returns None.
+    """
+    if not os.path.exists(cfg.WS_PORTS_FILE):
+        return None
+    return int(time.time() - os.path.getmtime(cfg.WS_PORTS_FILE))
+
+def ports_file_age():
+    """
+    Returns the age of the ports.txt file in seconds.
+    If the file does not exist, returns None.
+    """
+    ports_file_path = "ports.txt"
+    if not os.path.exists(ports_file_path):
+        return None
+    return int(time.time() - os.path.getmtime(ports_file_path))
+
+def should_regenerate_ports_file():
+    """
+    Determines if the ports.txt file should be regenerated.
+    Returns True if the file doesn't exist or is older than 24 hours.
+    """
+    age = ports_file_age()
+    if age is None:
+        ws_warning("[PORT_SCANNER]", "ports.txt not found, regeneration needed")
+        return True
+    
+    # 24 hours in seconds
+    max_age = 60 * 60 * 24
+    if age > max_age:
+        ws_warning("[PORT_SCANNER]", f"ports.txt is {age//3600} hours old, regeneration needed")
+        return True
+    
+    return False

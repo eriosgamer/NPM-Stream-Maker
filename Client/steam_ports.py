@@ -1,5 +1,6 @@
 from rich.console import Console
 from rich.progress import Progress
+from UI.console_handler import ws_info, ws_error
 
 console = Console()
 
@@ -212,7 +213,7 @@ def get_common_steam_ports():
     ports = set()
     # Calculate the total number of port combinations to be generated
     total_combinations = sum(count for _, count, _ in game_ports)
-    console.print(f"[bold cyan]Generating {total_combinations} game server ports from {len(game_ports)} categories...")
+    ws_info("[WS_CLIENT]", f"Generating {total_combinations} game server ports from {len(game_ports)} categories...")
 
     # Use a progress bar to show progress while generating ports
     with Progress() as progress:
@@ -222,8 +223,8 @@ def get_common_steam_ports():
             for i in range(count):
                 ports.add(base + i)
             progress.advance(task)
-    
-    console.print(f"[bold green]Generated {len(ports)} unique game server ports")
+
+    ws_info("[WS_CLIENT]", f"Generated {len(ports)} unique game server ports")
     return ports
 
 # --- Module summary ---

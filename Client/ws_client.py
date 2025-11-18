@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from rich.console import Console
+from dotenv import load_dotenv
 
 # Add parent directory to sys.path to allow relative imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,11 +12,16 @@ from Config import ws_config_handler as WebSocketConfig
 from Config import config as cfg
 from Client import ws_client_main_thread as wscth
 from WebSockets import uri_config
+from UI.console_handler import ws_info, ws_error, ws_success
+
+# Load environment variables from .env file
+load_dotenv()
 
 console = Console()
 
 # This file manages the startup and main loop of the WebSocket client,
 # including configuration validation, connection testing, and port assignment management.
+
 
 def start_ws_client():
     """
@@ -28,44 +34,44 @@ def start_ws_client():
     uris, tokens, _ = WebSocketConfig.get_ws_config()
 
     if not uris or not tokens or not any(tokens):
-        console.print("[bold red]No WebSocket URIs or tokens configured.[/bold red]")
-        console.print("[bold yellow]Please use option 3 (Edit WebSocket URIs) to configure servers and tokens first.[/bold yellow]")
+        ws_error("[WS_CLIENT]", "No WebSocket URIs or tokens configured.")
+        ws_info("[WS_CLIENT]", "Please use option 3 (Edit WebSocket URIs) to configure servers and tokens first.")
         input("\nPress Enter to continue...")
         return
 
     # Test connections before starting
-    console.print(
-        "[bold cyan]Testing connections to configured servers...[/bold cyan]")
+    ws_info("[WS_CLIENT]", "Testing connections to configured servers...")
     successful_connections = 0
+    valid_uri_token_pairs = []
 
     for uri, token in zip(uris, tokens):
         if not uri or not token:
             continue
-        console.print(f"[cyan]Testing {uri}...[/cyan]")
+        ws_info("[WS_CLIENT]", f"Testing {uri}...")
         if ws_config.test_ws_connection(uri, token):
-            console.print(f"[green]✅ Connection to {uri} successful[/green]")
+            ws_info("[WS_CLIENT]", f"✅ Connection to {uri} successful")
             successful_connections += 1
+            valid_uri_token_pairs.append((uri, token))
         else:
-            console.print(f"[red]❌ Connection to {uri} failed[/red]")
+            ws_error("[WS_CLIENT]", f"❌ Connection to {uri} failed")
 
     if successful_connections == 0:
-        console.print(
-            "[bold red]No valid connections found. Cannot start client.[/bold red]")
+        ws_error("[WS_CLIENT]", "No valid connections found. Cannot start client.")
         input("\nPress Enter to continue...")
         return
 
-    console.print(
-        f"[bold green]Found {successful_connections} valid connections. Starting client...[/bold green]")
-    
-    # Start the WebSocket client
+    ws_info("[WS_CLIENT]", f"Found {successful_connections} valid connections. Starting client...")
+
+    # Start the WebSocket client for all valid servers
     try:
-        asyncio.run(main())
+        asyncio.run(main(valid_uri_token_pairs))
     except KeyboardInterrupt:
-        console.print("\n[bold yellow][WS_CLIENT][/bold yellow] Client stopped by user")
+        ws_info("[WS_CLIENT]", "Client stopped by user")
     except Exception as e:
-        console.print(f"[bold red][WS_CLIENT][/bold red] Client error: {e}")
-        
-    console.print("[bold green][WS_CLIENT][/bold green] WebSocket client finished")
+        ws_error("[WS_CLIENT]", f"Client error: {e}")
+
+    ws_info("[WS_CLIENT]", "WebSocket client finished")
+
 
 def is_ports_file_outdated():
     """
@@ -73,26 +79,28 @@ def is_ports_file_outdated():
     Returns True if it should be regenerated.
     """
     ports_file = "ports.txt"
-    
+
     if not os.path.exists(ports_file):
         return True
-    
+
     try:
         # Check file age (regenerate if older than 7 days)
         import time
+
         file_age = time.time() - os.path.getmtime(ports_file)
         if file_age > 7 * 24 * 60 * 60:  # 7 days
             return True
-        
+
         # Check file size (should be reasonable)
         file_size = os.path.getsize(ports_file)
         if file_size < 1000:  # Too small
             return True
-            
+
         return False
     except Exception as e:
-        console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Error checking ports file: {e}")
+        ws_error("[WS_CLIENT]", f"Error checking ports file: {e}")
         return True
+
 
 def ensure_ports_file():
     """
@@ -100,65 +108,84 @@ def ensure_ports_file():
     If not, it generates it by running the Port_Scanner.
     """
     ports_file = "ports.txt"
-    
+
     # Check if file exists and is up to date
     needs_update = is_ports_file_outdated()
-    
+
     if needs_update:
-        console.print("[bold yellow][WS_CLIENT][/bold yellow] Ports file needs update, generating...")
+        ws_info("[WS_CLIENT]", "Ports file needs update, generating...")
         try:
             # Try to run Port_Scanner to generate ports.txt
             import subprocess
             import sys
-            
+
             # Set environment variable for Port_Scanner
             env = os.environ.copy()
             env["RUN_FROM_PANEL"] = "1"
-            
-            result = subprocess.run(
-                [sys.executable, os.path.join("ports", "port_scanner_main.py")],
-                env=env,
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode == 0:
-                console.print("[bold green][WS_CLIENT][/bold green] Ports file generated successfully")
-            else:
-                console.print(f"[bold red][WS_CLIENT][/bold red] Failed to generate ports file: {result.stderr}")
-        except Exception as e:
-            console.print(f"[bold red][WS_CLIENT][/bold red] Error generating ports file: {e}")
-    else:
-        console.print("[bold green][WS_CLIENT][/bold green] Ports file is up to date")
 
-async def main():
+            from ports.port_scanner_main import gen_ports_file
+
+            if gen_ports_file():
+                ws_success("[WS_CLIENT]", "Ports file generated successfully")
+            else:
+                ws_error("[WS_CLIENT]", "Failed to generate ports file.")
+        except Exception as e:
+            ws_error("[WS_CLIENT]", f"Error generating ports file: {e}")
+    else:
+        ws_info("[WS_CLIENT]", "Ports file is up to date.")
+
+
+async def send_ports_on_connect(ws):
+    """
+    Envía la lista de puertos activos al servidor solo al conectar/reconectar.
+    """
+    try:
+        ports = []
+        for (port, proto), assignment in cfg.client_assignments.items():
+            # Solo incluir puertos activos (no todos los históricos)
+            if assignment.get("assigned", True):
+                ports.append({"port": port, "protocol": proto})
+        msg = {"action": "register_ports", "ports": ports}
+        await ws.send(json.dumps(msg))
+    except Exception as e:
+        ws_error("[WS_CLIENT]", f"Error sending ports after reconnection: {e}")
+
+
+async def main(valid_uri_token_pairs=None):
     """
     Main function to run the WebSocket client with server discovery.
     Handles configuration changes and runs the main client loop.
     """
-    console.print("[bold green][WS_CLIENT][/bold green] Starting WebSocket client with server discovery...")
-    
-    # Check for pending URI updates
-    uri_config.check_pending_uri_updates()
+    ws_info("[WS_CLIENT]", "Starting WebSocket client with server discovery...")
 
-    # Check if configuration changed and save hash ONLY if user made changes
-    config_changed = uri_config.has_uri_config_changed()
-    if config_changed:
-        console.print("[bold cyan][WS_CLIENT][/bold cyan] Configuration change detected")
-        uri_config.save_last_uri_config()
-    
+    if valid_uri_token_pairs is None:
+        uris, tokens, _ = WebSocketConfig.get_ws_config()
+        valid_uri_token_pairs = [
+            (uri, token) for uri, token in zip(uris, tokens) if uri and token
+        ]
+
+    # Lanzar una tarea por cada servidor/token
+    tasks = []
+    for uri, token in valid_uri_token_pairs:
+        tasks.append(
+            asyncio.create_task(
+                wscth.ws_client_main_loop(
+                    on_connect=send_ports_on_connect, server_uri=uri, server_token=token
+                )
+            )
+        )
     try:
-        # Run the main client loop - this should run indefinitely
-        await wscth.ws_client_main_loop()
+        await asyncio.gather(*tasks)
     except KeyboardInterrupt:
-        console.print("\n[bold yellow][WS_CLIENT][/bold yellow] Shutting down...")
+        ws_info("[WS_CLIENT]", "Shutting down...")
     except Exception as e:
-        console.print(f"[bold red][WS_CLIENT][/bold red] Main loop error: {e}")
-        raise
+        ws_error("[WS_CLIENT]", f"Main loop error: {e}")
+        input("\nPress Enter to exit...")
     finally:
         # Save final state (but NOT URI configuration)
         save_client_assignments()
-        console.print("[bold green][WS_CLIENT][/bold green] WebSocket client stopped")
+        ws_info("[WS_CLIENT]", "WebSocket client stopped")
+
 
 def save_client_assignments():
     """
@@ -171,11 +198,12 @@ def save_client_assignments():
         for (port, proto), assignment in cfg.client_assignments.items():
             key = f"{port}|{proto}"
             serializable_assignments[key] = assignment
-        
+
         with open(cfg.CLIENT_ASSIGNMENTS_FILE, "w") as f:
             json.dump(serializable_assignments, f, indent=2)
     except Exception as e:
-        console.print(f"[bold red][WS_CLIENT][/bold red] Error saving client assignments: {e}")
+        ws_error("[WS_CLIENT]", f"Error saving client assignments: {e}")
+
 
 def load_client_assignments():
     """
@@ -187,7 +215,7 @@ def load_client_assignments():
         if os.path.exists(cfg.CLIENT_ASSIGNMENTS_FILE):
             with open(cfg.CLIENT_ASSIGNMENTS_FILE, "r") as f:
                 data = json.load(f)
-            
+
             # Convert string keys back to tuples
             client_assignments = {}
             for key, assignment in data.items():
@@ -195,8 +223,7 @@ def load_client_assignments():
                     port, proto = key.split("|", 1)
                     if port.isdigit():
                         client_assignments[(int(port), proto)] = assignment
-                        
-            console.print(f"[bold green][WS_CLIENT][/bold green] Loaded {len(client_assignments)} client assignments")
-    except Exception as e:
-        console.print(f"[bold red][WS_CLIENT][/bold red] Error loading client assignments: {e}")
 
+            ws_info("[WS_CLIENT]", f"Loaded {len(client_assignments)} client assignments")
+    except Exception as e:
+        ws_error("[WS_CLIENT]", f"Error loading client assignments: {e}")

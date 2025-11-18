@@ -15,6 +15,7 @@ from rich.console import Console
 # Add the parent directory to sys.path to allow importing the config module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
+from UI.console_handler import ws_info, ws_error, ws_warning
 
 console = Console()
 
@@ -24,8 +25,7 @@ def clear_all_conflict_resolution_data():
     Removes all conflict resolution data from files and the database.
     Returns the number of items removed.
     """
-    console.print(
-        "[bold cyan][STREAM_MANAGER][/bold cyan] Clearing all conflict resolution data...")
+    ws_info("[STREAM_MANAGER]", "Clearing all conflict resolution data...")
 
     cleared_count = 0
 
@@ -35,11 +35,9 @@ def clear_all_conflict_resolution_data():
             if os.path.exists(file_path):
                 os.remove(file_path)
                 cleared_count += 1
-                console.print(
-                    f"[bold green][STREAM_MANAGER][/bold green] Cleared: {file_path}")
+                ws_info("[STREAM_MANAGER]", f"Cleared: {file_path}")
         except Exception as e:
-            console.print(
-                f"[bold red][STREAM_MANAGER][/bold red] Error clearing {file_path}: {e}")
+            ws_error("[STREAM_MANAGER]", f"Error clearing {file_path}: {e}")
 
     # Clear conflict resolution streams from the database
     try:
@@ -60,17 +58,14 @@ def clear_all_conflict_resolution_data():
                     )
                     conn.commit()
                     cleared_count += conflict_streams
-                    console.print(
-                        f"[bold green][STREAM_MANAGER][/bold green] Cleared {conflict_streams} conflict resolution streams from database")
+                    ws_info("[STREAM_MANAGER]", f"Cleared {conflict_streams} conflict resolution streams from database")
 
             finally:
                 conn.close()
     except Exception as e:
-        console.print(
-            f"[bold red][STREAM_MANAGER][/bold red] Error clearing database conflict resolutions: {e}")
+        ws_error("[STREAM_MANAGER]", f"Error clearing database conflict resolutions: {e}")
 
-    console.print(
-        f"[bold cyan][STREAM_MANAGER][/bold cyan] Total items cleared: {cleared_count}")
+    ws_info("[STREAM_MANAGER]", f"Total items cleared: {cleared_count}")
     return cleared_count
 
 
@@ -85,4 +80,4 @@ def clear_ws_ports_file():
             with open(cfg.WS_PORTS_FILE, "w") as f:
                 json.dump([], f)
         except Exception as e:
-            console.print(f"[bold red][WS][/bold red] Error clearing ws_ports file: {e}")
+            ws_error("[WS]", f"Error clearing ws_ports file: {e}")

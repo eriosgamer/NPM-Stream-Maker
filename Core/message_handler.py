@@ -1,30 +1,50 @@
 from rich.console import Console
 import sys
 import os
+import asyncio
+import json
 
 # Add the parent directory to sys.path to allow imports from sibling modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Config import config as cfg
 from Client import ws_client
+from UI.console_handler import ws_info, ws_error
+
 
 # Initialize Rich console for colored terminal output
 console = Console()
 
-# This function handles incoming messages from the server and updates the client state accordingly.
-# It processes different message types related to port assignments and conflicts.
-async def handle_server_message(data):
+async def handle_server_message(data, websocket=None):
     """
-    Handle incoming server messages and update client state accordingly.
+    Handle incoming client messages (type starts with 'client_').
     """
     try:
+        message_type = None
+
+        if isinstance(data, str):
+            try:
+                data_json = json.loads(data)
+                message_type = data_json.get("type")
+                if not (message_type and message_type.startswith("client_")):
+                    return
+                data = data_json
+            except Exception:
+                return
+
+        if isinstance(data, dict):
+            message_type = data.get("type")
+            if not (message_type and message_type.startswith("client_")):
+                return
+        else:
+            return
+
         message_type = data.get("type")
 
-        if message_type == "port_assignments":
+        if message_type == "client_port_assignments":
             assignments = data.get("assignments", [])
             conflicts = data.get("conflicts", [])
 
             # Print the number of received port assignments
-            console.print(f"[bold green][WS_CLIENT][/bold green] Received port assignments: {len(assignments)} ports")
+            ws_info("[WS_CLIENT]", f"Received port assignments: {len(assignments)} ports")
 
             for assignment in assignments:
                 port = assignment.get("port")
@@ -41,15 +61,15 @@ async def handle_server_message(data):
 
             if conflicts:
                 # Print the number of detected port conflicts
-                console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Port conflicts detected: {len(conflicts)}")
+                ws_error("[WS_CLIENT]", f"Port conflicts detected: {len(conflicts)}")
                 for conflict in conflicts:
                     # Print details about each port conflict
-                    console.print(f"[bold yellow]  → Port {conflict.get('port')} ({conflict.get('protocol')}) - assigned to: {conflict.get('assigned_to')}[/bold yellow]")
+                    ws_info("[WS_CLIENT]", f"  → Port {conflict.get('port')} ({conflict.get('protocol')}) - assigned to: {conflict.get('assigned_to')}")
 
             # Save the updated client assignments to persistent storage
             ws_client.save_client_assignments()
 
-        elif message_type == "port_assignment_update":
+        elif message_type == "client_port_assignment_update":
             port = data.get("port")
             protocol = data.get("protocol", "tcp")
             assigned = data.get("assigned", False)
@@ -62,24 +82,24 @@ async def handle_server_message(data):
                     "incoming_port": incoming_port
                 }
                 # Print update information
-                console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Port assignment updated: {port} ({protocol}) - assigned: {assigned}")
+                ws_info("[WS_CLIENT]", f"Port assignment updated: {port} ({protocol}) - assigned: {assigned}")
                 ws_client.save_client_assignments()
 
-        elif message_type == "port_conflict_resolution":
+        elif message_type == "client_port_conflict_resolution":
             port = data.get("port")
             protocol = data.get("protocol", "tcp")
             conflicting_clients = data.get("conflicting_clients", [])
             assigned_to = data.get("assigned_to")
 
             # Print information about the resolved port conflict
-            console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Port conflict resolution: {port} ({protocol}) assigned to {assigned_to}")
-            console.print(f"[bold yellow]  → Conflicting clients: {conflicting_clients}[/bold yellow]")
+            ws_info("[WS_CLIENT]", f"Port conflict resolution: {port} ({protocol}) assigned to {assigned_to}")
+            ws_info("[WS_CLIENT]", f"  → Conflicting clients: {conflicting_clients}")
 
-        elif message_type == "port_conflict_resolutions":
+        elif message_type == "client_port_conflict_resolutions":
             # Handle broadcast of conflict resolutions from the conflict resolution server
             conflicts = data.get("conflicts", [])
             # Print the number of conflict resolutions received
-            console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Received {len(conflicts)} conflict resolutions from server")
+            ws_info("[WS_CLIENT]", f"Received {len(conflicts)} conflict resolutions from server")
 
             for conflict in conflicts:
                 original_port = conflict.get("original_port")
@@ -88,13 +108,13 @@ async def handle_server_message(data):
                 client_ip = conflict.get("client_ip")
 
                 # Print details about each conflict resolution
-                console.print(f"[bold blue][WS_CLIENT][/bold blue] Conflict resolution: {original_port} ({protocol}) → {alternative_port} for {client_ip}")
+                ws_info("[WS_CLIENT]", f"Conflict resolution: {original_port} ({protocol}) → {alternative_port} for {client_ip}")
 
         else:
             # Print a warning for unknown message types
-            console.print(f"[bold blue][WS_CLIENT][/bold blue] Unknown message type: {message_type}")
+            ws_error("[WS_CLIENT]", f"Unknown message type: {message_type}")
 
     except Exception as e:
         # Print error details if message handling fails
-        console.print(f"[bold red][WS_CLIENT][/bold red] Error handling server message: {e}")
+        ws_error("[WS_CLIENT]", f"Error handling server message: {e}")
 

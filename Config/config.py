@@ -2,11 +2,15 @@ import os
 import sys
 import threading
 import time
+from dotenv import load_dotenv
 
 # Add the parent directory to sys.path to allow importing modules from Core
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Core import token_manager
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Make fcntl optional for Windows compatibility
 try:

@@ -1,6 +1,7 @@
 import sys
 import os
 from collections import defaultdict
+from UI.console_handler import ws_error, ws_info
 import re
 from rich.console import Console
 
@@ -103,7 +104,7 @@ def load_ports(path):
     Returns a set of ports.
     """
     if not os.path.exists(path):
-        console.print(f"[bold red][WS_CLIENT][/bold red] Ports file not found: {path}")
+        ws_error("[WS_CLIENT]", f"Ports file not found: {path}")
         return set()
     
     try:
@@ -111,7 +112,7 @@ def load_ports(path):
             content = f.read()
         return expand_ports(content)
     except Exception as e:
-        console.print(f"[bold red][WS_CLIENT][/bold red] Error loading ports from {path}: {e}")
+        ws_error("[WS_CLIENT]",f"Error loading ports from {path}: {e}")
         return set()
 
 def expand_instances_per_port(ports, max_instances=5):

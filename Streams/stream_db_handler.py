@@ -6,6 +6,8 @@ import sys
 # Add the parent directory to sys.path to allow imports from parent modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from UI.console_handler import ws_info, ws_error, ws_warning
+
 def clean_streams_database():
     """
     Removes all streams from the SQLite database robustly.
@@ -15,7 +17,7 @@ def clean_streams_database():
     try:
         # Check if the SQLite database file exists
         if not os.path.exists(cfg.SQLITE_DB_PATH):
-            print("[INFO] SQLite database not found - skipping database cleanup")
+            ws_info("[WS]", "SQLite database not found - skipping database cleanup")
             return False
 
         # Use 'with' to ensure the connection is closed properly
@@ -25,7 +27,7 @@ def clean_streams_database():
             cur.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='stream'")
             if not cur.fetchone():
-                print("[WARN] Table 'stream' does not exist in the database")
+                ws_warning("[WS]", "Table 'stream' does not exist in the database")
                 return False
 
             # Count active streams (not marked as deleted)
@@ -37,11 +39,10 @@ def clean_streams_database():
             total_streams = cur.fetchone()[0]
 
             if total_streams == 0:
-                print("[INFO] Database stream table is already empty")
+                ws_info("[WS]", "Database stream table is already empty")
                 return True
 
-            print(
-                f"[INFO] Found {active_streams} active streams, {total_streams} total streams in database")
+            ws_info("[WS]", f"Found {active_streams} active streams, {total_streams} total streams in database")
 
             try:
                 # Mark all active streams as deleted and disable them
@@ -58,21 +59,19 @@ def clean_streams_database():
 
                 conn.commit()
             except sqlite3.DatabaseError as db_err:
-                print(f"[ERROR] SQLite error during cleanup: {db_err}")
+                ws_error("[WS]", f"SQLite error during cleanup: {db_err}")
                 conn.rollback()
                 return False
 
             if marked_deleted > 0:
-                print(
-                    f"[OK] Marked {marked_deleted} active streams as deleted")
+                ws_info("[WS]", f"Marked {marked_deleted} active streams as deleted")
             if deleted_count > 0:
-                print(
-                    f"[OK] Permanently removed {deleted_count} streams from database")
-                print("[OK] Reset stream table auto-increment counter")
+                ws_info("[WS]", f"Permanently removed {deleted_count} streams from database")
+                ws_info("[WS]", "Reset stream table auto-increment counter")
             else:
-                print("[INFO] No streams to remove from database")
+                ws_info("[WS]", "No streams to remove from database")
             return True
 
     except Exception as e:
-        print(f"[ERROR] Error cleaning streams database: {e}")
+        ws_error("[WS]", f"Error cleaning streams database: {e}")
         return False

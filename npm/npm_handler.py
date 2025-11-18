@@ -18,6 +18,7 @@ import time
 
 from rich.console import Console
 from Config import config as cfg
+from UI.console_handler import ws_info, ws_error, ws_warning
 console = Console()
 
 
@@ -46,7 +47,7 @@ def ensure_npm_compose_file():
       DISABLE_IPV6: 'true'
       X_FRAME_OPTIONS: "sameorigin"
 """)
-    print(f"[CONTROL_PANEL] docker-compose.yml generated at {compose_file}")
+    ws_info("[CONTROL_PANEL]", f"docker-compose.yml generated at {compose_file}")
 
 
 def stop_npm():
@@ -58,8 +59,7 @@ def stop_npm():
     compose_dir = cfg.NGINX_BASE_DIR
     compose_file = os.path.join(compose_dir, "docker-compose.yml")
     if not os.path.exists(compose_file):
-        print(
-            f"[NPM_CLEANER] docker-compose.yml not found in {compose_dir}. Cannot stop NPM automatically.")
+        ws_warning("[NPM_CLEANER]", f"docker-compose.yml not found in {compose_dir}. Cannot stop NPM automatically.")
         return
     # Check if the container is running before attempting to stop it
     try:
@@ -72,39 +72,37 @@ def stop_npm():
         )
         running_services = result.stdout.strip().splitlines()
         if not running_services:
-            print(
-                "[NPM_CLEANER] Nginx Proxy Manager is not running. No need to stop it.")
+            ws_info("[NPM_CLEANER]", "Nginx Proxy Manager is not running. No need to stop it.")
             return
     except Exception as e:
-        print(f"[NPM_CLEANER] Error checking running containers: {e}")
+        ws_error("[NPM_CLEANER]", f"Error checking running containers: {e}")
         return
     try:
         subprocess.run(["docker-compose", "down"], cwd=compose_dir, check=True)
-        print("Container stopped.")
+        ws_info("[NPM_CLEANER]", "Container stopped.")
     except subprocess.CalledProcessError as e:
-        print(
-            f"[NPM_CLEANER] Error stopping NPM:\nSTDOUT:\n{e.output}\nSTDERR:\n{e.stderr}")
+        ws_error("[NPM_CLEANER]", f"Error stopping NPM:\nSTDOUT:\n{e.output}\nSTDERR:\n{e.stderr}")
+
 
 
 def restart_npm():
     """
     Restarts the Nginx Proxy Manager container using docker-compose.
     """
-    print("Restarting Nginx Proxy Manager with docker-compose...")
+    ws_info("[NPM_CLEANER]", "Restarting Nginx Proxy Manager with docker-compose...")
     compose_dir = cfg.NGINX_BASE_DIR
     compose_file = os.path.join(compose_dir, "docker-compose.yml")
     if not os.path.exists(compose_file):
-        print(
-            f"[NPM_CLEANER] docker-compose.yml not found in {compose_dir}. Cannot restart NPM automatically.")
+        ws_warning("[NPM_CLEANER]", f"docker-compose.yml not found in {compose_dir}. Cannot restart NPM automatically.")
         return
     try:
         subprocess.run(["docker-compose", "down"], cwd=compose_dir, check=True)
         subprocess.run(["docker-compose", "up", "-d"],
                        cwd=compose_dir, check=True)
-        print("Container restarted.")
+        ws_info("[NPM_CLEANER]", "Container restarted.")
     except subprocess.CalledProcessError as e:
-        print(
-            f"[NPM_CLEANER] Error restarting NPM:\nSTDOUT:\n{e.output}\nSTDERR:\n{e.stderr}")
+        ws_error("[NPM_CLEANER]", f"Error restarting NPM:\nSTDOUT:\n{e.output}\nSTDERR:\n{e.stderr}")
+
 
 
 def reload_npm():
@@ -112,10 +110,16 @@ def reload_npm():
     Reloads Nginx inside the Nginx Proxy Manager container using nginx -s reload.
     Only runs if Docker is available.
     """
+    # Asegura que la variable DOCKER_AVAILABLE esté correctamente definida
+    try:
+        from npm.docker_utils import check_docker_available
+        check_docker_available()
+    except Exception as e:
+        ws_error("[NPM_CLEANER]", f"Error checking Docker availability: {e}")
+
     docker_available = os.environ.get("DOCKER_AVAILABLE", "0") == "1"
-    
     if not docker_available:
-        console.print("[bold yellow][NPM_CLEANER][/bold yellow] Docker not available - skipping NPM reload")
+        ws_warning("[NPM_CLEANER]", "Docker not available - skipping NPM reload")
         return
     
     npm_container_name = None
@@ -131,8 +135,7 @@ def reload_npm():
                 npm_container_name = parts[2]
                 break
         if not npm_container_name:
-            console.print(
-                "[bold yellow][NPM_CLEANER][/bold yellow] Could not find a running Nginx Proxy Manager container to reload.")
+            ws_warning("[NPM_CLEANER]", "Could not find a running Nginx Proxy Manager container to reload.")
             return
         # Execute nginx -s reload inside the container
         exec_result = subprocess.run(
@@ -140,14 +143,12 @@ def reload_npm():
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
         if exec_result.returncode == 0:
-            console.print(
-                "[bold green][NPM_CLEANER][/bold green] Nginx reloaded successfully inside the NPM container.")
+            ws_info("[NPM_CLEANER]", "Nginx reloaded successfully inside the NPM container.")
         else:
-            console.print(
-                f"[bold yellow][NPM_CLEANER][/bold yellow] Warning reloading Nginx:\nSTDOUT:\n{exec_result.stdout}\nSTDERR:\n{exec_result.stderr}")
+            ws_warning("[NPM_CLEANER]", f"Warning reloading Nginx:\nSTDOUT:\n{exec_result.stdout}\nSTDERR:\n{exec_result.stderr}")
     except Exception as e:
-        console.print(
-            f"[bold yellow][NPM_CLEANER][/bold yellow] Warning reloading Nginx in NPM container (Docker may not be available): {e}")
+        ws_warning("[NPM_CLEANER]", f"Warning reloading Nginx in NPM container (Docker may not be available): {e}")
+
 
 
 def restart_npm_for_fresh_start():
@@ -155,12 +156,12 @@ def restart_npm_for_fresh_start():
     Performs a fresh restart of the NPM container to ensure a clean start when launching ws_server.
     Stops and removes previous containers before starting again.
     """
-    print("[NPM_CLEANER] Performing fresh restart of NPM for WebSocket server startup...")
+    ws_info("[NPM_CLEANER]", "Performing fresh restart of NPM for WebSocket server startup...")
     compose_dir = cfg.NGINX_BASE_DIR
     compose_file = os.path.join(compose_dir, "docker-compose.yml")
     
     if not os.path.exists(compose_file):
-        print(f"[NPM_CLEANER] docker-compose.yml not found in {compose_dir}. Cannot restart NPM automatically.")
+        ws_warning("[NPM_CLEANER]", f"docker-compose.yml not found in {compose_dir}. Cannot restart NPM automatically.")
         return False
     
     try:
@@ -177,36 +178,36 @@ def restart_npm_for_fresh_start():
         running_services = result.stdout.strip().splitlines()
         
         if running_services:
-            print(f"[NPM_CLEANER] Found {len(running_services)} running service(s). Performing clean restart...")
+            ws_info("[NPM_CLEANER]", f"Found {len(running_services)} running service(s). Performing clean restart...")
             # Force stop and remove containers
             subprocess.run(["docker-compose", "down", "--remove-orphans"], 
                          cwd=compose_dir, check=True, timeout=30)
-            print("[NPM_CLEANER] NPM containers stopped successfully")
+            ws_info("[NPM_CLEANER]", "NPM containers stopped successfully")
             time.sleep(2)  # Brief pause between stop and start
         else:
-            print("[NPM_CLEANER] No running containers found. Starting fresh...")
-        
+            ws_info("[NPM_CLEANER]", "No running containers found. Starting fresh...")
+
         # Start containers
         result = subprocess.run(["docker-compose", "up", "-d"], 
                               cwd=compose_dir, check=True, timeout=60)
-        print("[NPM_CLEANER] NPM containers started successfully")
-        
+        ws_info("[NPM_CLEANER]", "NPM containers started successfully")
+
         # Wait a moment for services to initialize
-        print("[NPM_CLEANER] Waiting for NPM to initialize...")
+        ws_info("[NPM_CLEANER]", "Waiting for NPM to initialize...")
         time.sleep(5)
         
         return True
         
     except subprocess.TimeoutExpired:
-        print("[NPM_CLEANER] Timeout during NPM restart operation")
+        ws_warning("[NPM_CLEANER]", "Timeout during NPM restart operation")
         return False
     except subprocess.CalledProcessError as e:
-        print(f"[NPM_CLEANER] Error during NPM restart:\nCommand: {e.cmd}\nReturn code: {e.returncode}")
+        ws_warning("[NPM_CLEANER]", f"Error during NPM restart:\nCommand: {e.cmd}\nReturn code: {e.returncode}")
         if e.stdout:
-            print(f"STDOUT:\n{e.stdout}")
+            ws_info("[NPM_CLEANER]", f"STDOUT:\n{e.stdout}")
         if e.stderr:
-            print(f"STDERR:\n{e.stderr}")
+            ws_warning("[NPM_CLEANER]", f"STDERR:\n{e.stderr}")
         return False
     except Exception as e:
-        print(f"[NPM_CLEANER] Unexpected error during NPM restart: {e}")
+        ws_warning("[NPM_CLEANER]", f"Unexpected error during NPM restart: {e}")
         return False

@@ -16,6 +16,7 @@ Author: [Your Name or Team]
 """
 
 from rich.console import Console
+from rich.table import Table
 
 console = Console()
 
@@ -29,6 +30,8 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from Wireguard import wireguard_tools as wg_tools
+from UI.console_handler import ws_error, ws_info, ws_warning
+
 
 def update_stream_forwarding_ip(port, new_ip):
     """
@@ -41,7 +44,8 @@ def update_stream_forwarding_ip(port, new_ip):
     try:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE stream SET forwarding_host=? WHERE incoming_port=?", (new_ip, port))
+            "UPDATE stream SET forwarding_host=? WHERE incoming_port=?", (new_ip, port)
+        )
         conn.commit()
         return cur.rowcount > 0
     finally:
@@ -65,12 +69,13 @@ def remove_inactive_ports_from_streams():
     except Exception:
         data = []
     # Clean ws_ports.json to only keep active ports
-    new_data = [entry for entry in data if (
-        entry.get("timestamp") and now - int(entry["timestamp"]) <= timeout)]
+    new_data = [
+        entry
+        for entry in data
+        if (entry.get("timestamp") and now - int(entry["timestamp"]) <= timeout)
+    ]
     with open(cfg.WS_PORTS_FILE, "w") as f:
         json.dump(new_data, f, indent=2)
-
-# Copied
 
 
 def add_streams_sqlite_with_ip_extended(new_entries):
@@ -79,55 +84,57 @@ def add_streams_sqlite_with_ip_extended(new_entries):
     Groups by port and updates or inserts as appropriate.
     Applies WireGuard logic if available.
     """
-    console.print(
-        f"[bold green][STREAM_MANAGER][/bold green] Adding {len(new_entries)} pre-processed streams to database...")
-
     if not new_entries:
         return
     if not os.path.exists(cfg.SQLITE_DB_PATH):
-        print("NPM SQLite database not found.")
+        ws_error("[WS]", "NPM SQLite database not found.")
         return
 
     conn = sqlite3.connect(cfg.SQLITE_DB_PATH)
+    summary_rows = []
     try:
         cur = conn.cursor()
         # Check if the 'stream' table exists
         cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='stream';")
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='stream';"
+        )
         if not cur.fetchone():
-            print(
-                "The 'stream' table does not exist in the database. Cannot add streams.")
+            ws_error("[WS]", "The 'stream' table does not exist in the database. Cannot add streams.")
             return
 
         # Get the first user ID (usually admin)
         cur.execute("SELECT id FROM user ORDER BY id LIMIT 1")
         user_row = cur.fetchone()
         if not user_row:
-            print("No user found in database. Cannot create streams.")
+            ws_error("[WS]", "No user found in database. Cannot create streams.")
             return
         owner_user_id = user_row[0]
 
         # Default metadata for new streams
-        default_meta = json.dumps({
-            "dns_provider_credentials": "",
-            "letsencrypt_agree": False,
-            "dns_challenge": True,
-            "nginx_online": True,
-            "nginx_err": None
-        })
+        default_meta = json.dumps(
+            {
+                "dns_provider_credentials": "",
+                "letsencrypt_agree": False,
+                "dns_challenge": True,
+                "nginx_online": True,
+                "nginx_err": None,
+            }
+        )
 
         by_port = {}
-        console.print(
-            f"[bold green][STREAM_MANAGER][/bold green] Adding {len(new_entries)} pre-processed streams to database...")
+        ws_info("[STREAM_MANAGER]", f"Adding {len(new_entries)} pre-processed streams to database...")
 
         # Group entries by incoming port
         for incoming_port, proto, ip, forwarding_port in new_entries:
             if incoming_port not in by_port:
                 # New port detected, initialize protocol flags and store IP/forwarding_port
-                console.print(
-                    f"[bold yellow][STREAM_MANAGER][/bold yellow] New port: incoming={incoming_port}, forwarding={forwarding_port}, IP={ip}")
+                ws_info("[STREAM_MANAGER]", f"New port: incoming={incoming_port}, forwarding={forwarding_port}, IP={ip}")
                 by_port[incoming_port] = {
-                    "tcp": 0, "udp": 0, "ip": ip, "forwarding_port": forwarding_port}
+                    "tcp": 0,
+                    "udp": 0,
+                    "ip": ip,
+                    "forwarding_port": forwarding_port,
+                }
 
             # Update protocol flags for this port
             if proto == "tcp":
@@ -138,20 +145,18 @@ def add_streams_sqlite_with_ip_extended(new_entries):
             by_port[incoming_port]["ip"] = ip
             by_port[incoming_port]["forwarding_port"] = forwarding_port
 
-        console.print(
-            f"[bold green][STREAM_MANAGER][/bold green] Processing {len(by_port)} unique ports...")
+        ws_info("[STREAM_MANAGER]", f"Processing {len(by_port)} unique ports...")
 
         # Check if WireGuard is available (for IP resolution only)
         def wireguard_present():
             # WireGuard is considered present if /etc/wireguard exists or 'wg' binary is found in PATH
-            return os.path.exists('/etc/wireguard') or any(
-                os.access(os.path.join(path, 'wg'), os.X_OK)
+            return os.path.exists("/etc/wireguard") or any(
+                os.access(os.path.join(path, "wg"), os.X_OK)
                 for path in os.environ.get("PATH", "").split(os.pathsep)
             )
 
         wg_available = wireguard_present()
-        console.print(
-            f"[bold cyan][STREAM_MANAGER][/bold cyan] WireGuard available: {wg_available}")
+        ws_info("[STREAM_MANAGER]", f"WireGuard available: {wg_available}")
 
         for incoming_port, protos in by_port.items():
             original_ip = protos["ip"]
@@ -162,65 +167,94 @@ def add_streams_sqlite_with_ip_extended(new_entries):
             if wg_available:
                 peer_ip = wg_tools.get_peer_ip_for_client_stream()
                 if peer_ip:
-                    console.print(
-                        f"[bold cyan][STREAM_MANAGER][/bold cyan] Using WireGuard peer IP: {peer_ip} (client: {original_ip})")
+                    ws_info("[STREAM_MANAGER]", f"Using WireGuard peer IP: {peer_ip} (client: {original_ip})")
                     final_ip = peer_ip
                 else:
-                    console.print(
-                        f"[bold yellow][STREAM_MANAGER][/bold yellow] WireGuard available but no peer found, using client IP: {original_ip}")
+                    ws_warning("[STREAM_MANAGER]", f"WireGuard available but no peer found, using client IP: {original_ip}")
             else:
-                console.print(
-                    f"[bold green][STREAM_MANAGER][/bold green] No WireGuard, using client IP: {original_ip}")
+                ws_info("[STREAM_MANAGER]", f"No WireGuard, using client IP: {original_ip}")
 
-            console.print(
-                f"[bold cyan][STREAM_MANAGER][/bold cyan] Final stream config: incoming={incoming_port}, forwarding_host={final_ip}, forwarding_port={forwarding_port}")
+            ws_info("[STREAM_MANAGER]", f"Final stream config: incoming={incoming_port}, forwarding_host={final_ip}, forwarding_port={forwarding_port}")
 
             # Check for existing stream (update vs insert)
             cur.execute(
-                "SELECT id, tcp_forwarding, udp_forwarding, forwarding_host, forwarding_port FROM stream WHERE incoming_port=? AND is_deleted=0", (incoming_port,))
+                "SELECT id, tcp_forwarding, udp_forwarding, forwarding_host, forwarding_port FROM stream WHERE incoming_port=? AND is_deleted=0",
+                (incoming_port,),
+            )
             existing_stream = cur.fetchone()
 
             if existing_stream:
                 # Update existing stream with new protocol flags and IP/port if needed
-                stream_id, existing_tcp, existing_udp, existing_host, existing_fwd_port = existing_stream
+                (
+                    stream_id,
+                    existing_tcp,
+                    existing_udp,
+                    existing_host,
+                    existing_fwd_port,
+                ) = existing_stream
                 new_tcp = max(existing_tcp, protos["tcp"])
                 new_udp = max(existing_udp, protos["udp"])
 
-                console.print(
-                    f"[bold green][STREAM_MANAGER][/bold green] Updating existing stream {stream_id}: TCP {existing_tcp}→{new_tcp}, UDP {existing_udp}→{new_udp}, IP {existing_host}→{final_ip}, fwd_port {existing_fwd_port}→{forwarding_port}")
+                ws_info("[STREAM_MANAGER]", f"Updating existing stream {stream_id}: TCP {existing_tcp}→{new_tcp}, UDP {existing_udp}→{new_udp}, IP {existing_host}→{final_ip}, fwd_port {existing_fwd_port}→{forwarding_port}")
 
                 cur.execute(
                     "UPDATE stream SET tcp_forwarding=?, udp_forwarding=?, forwarding_host=?, forwarding_port=?, modified_on=datetime('now') WHERE id=?",
-                    (new_tcp, new_udp, final_ip, forwarding_port, stream_id)
+                    (new_tcp, new_udp, final_ip, forwarding_port, stream_id),
+                )
+                summary_rows.append(
+                    (
+                        incoming_port,
+                        final_ip,
+                        forwarding_port,
+                        "TCP" if new_tcp else "UDP",
+                        "Updated",
+                    )
                 )
             else:
                 # Insert new stream with all required fields
-                console.print(
-                    f"[bold green][STREAM_MANAGER][/bold green] Creating new stream: incoming={incoming_port}, forwarding={forwarding_port}, IP={final_ip}, TCP={protos['tcp']}, UDP={protos['udp']}")
+                ws_info("[STREAM_MANAGER]", f"Creating new stream: incoming={incoming_port}, forwarding={forwarding_port}, IP={final_ip}, TCP={protos['tcp']}, UDP={protos['udp']}")
 
                 cur.execute(
                     "INSERT INTO stream (created_on, modified_on, owner_user_id, is_deleted, incoming_port, forwarding_host, forwarding_port, tcp_forwarding, udp_forwarding, meta, enabled, certificate_id) VALUES (datetime('now'), datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
-                        owner_user_id,            # owner_user_id
-                        0,                        # is_deleted
+                        owner_user_id,  # owner_user_id
+                        0,  # is_deleted
                         # incoming_port (already processed by ws_server)
                         int(incoming_port),
-                        final_ip,                 # forwarding_host
-                        int(forwarding_port),     # forwarding_port
-                        protos["tcp"],           # tcp_forwarding
-                        protos["udp"],           # udp_forwarding
-                        default_meta,            # meta
-                        1,                       # enabled
-                        0                        # certificate_id
+                        final_ip,  # forwarding_host
+                        int(forwarding_port),  # forwarding_port
+                        protos["tcp"],  # tcp_forwarding
+                        protos["udp"],  # udp_forwarding
+                        default_meta,  # meta
+                        1,  # enabled
+                        0,  # certificate_id
+                    ),
+                )
+                summary_rows.append(
+                    (
+                        incoming_port,
+                        final_ip,
+                        forwarding_port,
+                        "TCP" if protos["tcp"] else "UDP",
+                        "Created",
                     )
                 )
 
         conn.commit()
-        console.print(
-            f"[bold green][STREAM_MANAGER][/bold green] Successfully processed {len(by_port)} streams")
 
     except Exception as e:
-        console.print(
-            f"[bold red][STREAM_MANAGER][/bold red] Error adding streams to database: {e}")
+        ws_error("[STREAM_MANAGER]", f"Error adding streams: {e}")
     finally:
+        if summary_rows:
+            table = Table(title="Summary of Added Streams", show_lines=True)
+            table.add_column("Port", style="cyan", justify="center")
+            table.add_column("Destination", style="magenta", justify="center")
+            table.add_column("Forward", style="yellow", justify="center")
+            table.add_column("Protocol", style="green", justify="center")
+            table.add_column("Status", style="bold", justify="center")
+            for row in summary_rows:
+                table.add_row(*[str(x) for x in row])
+            ws_info("[STREAM_MANAGER]", table)
+        else:
+            ws_warning("[STREAM_MANAGER]", "No new streams were added.")
         conn.close()

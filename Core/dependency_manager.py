@@ -7,6 +7,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from rich.console import Console
+from UI.console_handler import ws_info, ws_error
 
 console = Console()
 
@@ -27,10 +28,8 @@ def show_missing_deps_message(missing):
     Shows installation tips based on the operating system.
     """
     console.rule("[bold red]Missing dependencies")
-    console.print(
-        f"[red]The following required commands are missing: [bold]{', '.join(missing)}[/bold][/red]")
-    console.print(
-        "[yellow]Please install the missing commands before continuing.[/yellow]")
+    ws_error("[WS_DEPENDENCY]", f"The following required commands are missing: [bold]{', '.join(missing)}[/bold]")
+    ws_info("[WS_DEPENDENCY]", "[yellow]Please install the missing commands before continuing.[/yellow]")
     # Installation tips for each dependency and OS
     tips = {
         "git": {
@@ -60,9 +59,8 @@ def show_missing_deps_message(missing):
         os_tip = "macOS"
     elif sys.platform.startswith("win"):
         os_tip = "Windows"
-    console.print("[bold cyan]Quick install tips:[/bold cyan]")
+    ws_info("[WS_DEPENDENCY]", "[bold cyan]Quick install tips:[/bold cyan]")
     for dep in missing:
         if dep in tips and os_tip in tips[dep]:
-            console.print(
-                f"[bold]{dep}[/bold] on {os_tip}: [green]{tips[dep][os_tip]}[/green]")
+            ws_info("[WS_DEPENDENCY]", f"[bold]{dep}[/bold] on {os_tip}: [green]{tips[dep][os_tip]}[/green]")
     Prompt.ask("\n[bold cyan]Press ENTER to return to the menu...")

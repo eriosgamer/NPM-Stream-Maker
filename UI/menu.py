@@ -1,3 +1,4 @@
+import shutil
 import sys
 import os
 from rich.console import Console
@@ -9,7 +10,7 @@ from rich.live import Live
 import time
 
 # Add platform-specific imports for key handling
-if os.name == 'nt':  # Windows
+if os.name == "nt":  # Windows
     import msvcrt
 else:  # Unix/Linux/macOS
     import termios
@@ -19,70 +20,76 @@ else:  # Unix/Linux/macOS
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Streams import stream_handler as sh
 from Streams import stream_cleaning as sc
-from Remote import remote_stream_add, remote_control
 from ports import port_scanner as ps
 from UI import uri_menu
 from Server import ws_server
 from Client import ws_client
 from WebSockets import diagnostics
 from npm import npm_status as npms
-from Remote import extra_utils as ex_util
+from npm import npm_handler as npmh
+from Core import dependency_manager as dep_mgr
+from Config import config
+from npm import docker_utils as du
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 
 # Initialize Rich console for colored terminal output
 console = Console()
 
+
 def clear_console():
     """
     Clear the console screen.
     """
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system("cls" if os.name == "nt" else "clear")
+
 
 def get_key():
     """
     Get a single key press from the user in a cross-platform way.
     """
-    if os.name == 'nt':  # Windows
+    if os.name == "nt":  # Windows
         key = msvcrt.getch()
-        if key == b'\xe0':  # Special key prefix on Windows
+        if key == b"\xe0":  # Special key prefix on Windows
             key = msvcrt.getch()
-            if key == b'H':  # Up arrow
-                return 'up'
-            elif key == b'P':  # Down arrow
-                return 'down'
-        elif key == b'\r':  # Enter key
-            return 'enter'
-        elif key == b'\x1b':  # Escape key
-            return 'esc'
+            if key == b"H":  # Up arrow
+                return "up"
+            elif key == b"P":  # Down arrow
+                return "down"
+        elif key == b"\r":  # Enter key
+            return "enter"
+        elif key == b"\x1b":  # Escape key
+            return "esc"
     else:  # Unix/Linux/macOS
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
             tty.setraw(sys.stdin.fileno())
             key = sys.stdin.read(1)
-            if key == '\x1b':  # Escape sequence
+            if key == "\x1b":  # Escape sequence
                 key += sys.stdin.read(2)
-                if key == '\x1b[A':  # Up arrow
-                    return 'up'
-                elif key == '\x1b[B':  # Down arrow
-                    return 'down'
+                if key == "\x1b[A":  # Up arrow
+                    return "up"
+                elif key == "\x1b[B":  # Down arrow
+                    return "down"
                 elif len(key) == 1:  # Just escape
-                    return 'esc'
-            elif key == '\r' or key == '\n':  # Enter key
-                return 'enter'
-            elif key == '\x1b':  # Escape key
-                return 'esc'
+                    return "esc"
+            elif key == "\r" or key == "\n":  # Enter key
+                return "enter"
+            elif key == "\x1b":  # Escape key
+                return "esc"
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    
+
     return None
+
 
 def check_npm_availability():
     """
     Check if NPM is running and accessible.
     """
     try:
-        return npms.check_npm()
+        return npms.check_npm_install()
     except:
         return False
 
@@ -104,17 +111,14 @@ def get_terminal_size():
     """
     return console.size
 
+
 def create_header():
     """
     Create the header panel.
     """
     header_text = Text("NPM Stream Manager", style="bold blue", justify="center")
-    return Panel(
-        Align.center(header_text),
-        style="bold blue",
-        padding=(0, 2),
-        height=3
-    )
+    return Panel(Align.center(header_text), style="bold blue", padding=(0, 2), height=3)
+
 
 def create_footer():
     """
@@ -122,50 +126,51 @@ def create_footer():
     """
     help_text = Text.assemble(
         ("Navigation: ", "bold cyan"),
-        ("↑↓ ", "bold yellow"), ("Move  ", "white"),
-        ("Enter ", "bold yellow"), ("Select  ", "white"),
-        ("Esc ", "bold yellow"), ("Exit", "white")
+        ("↑↓ ", "bold yellow"),
+        ("Move  ", "white"),
+        ("Enter ", "bold yellow"),
+        ("Select  ", "white"),
+        ("Esc ", "bold yellow"),
+        ("Exit", "white"),
     )
     return Panel(
         Align.center(help_text),
         title="[bold cyan]Controls[/bold cyan]",
         style="cyan",
         padding=(0, 2),
-        height=3
+        height=3,
     )
 
-def create_menu_content(menu_options, selected_index, terminal_height):
+
+def create_menu_content(menu_options, selected_index, window_start, window_size):
     """
-    Create the menu content that fits in the available space.
+    Create the menu content that fits in the available space, supporting scrolling.
     """
-    # Calculate available height for menu content
-    # Header (3) + Footer (3) + some padding = 8 lines reserved
-    available_height = terminal_height - 8
-    
     content = []
     content.append("[bold cyan]Menu Options:[/bold cyan]\n")
-    
-    for i, (option_text, available, requirement) in enumerate(menu_options):
-        prefix = "► " if i == selected_index else "  "
-        
+
+    visible_options = menu_options[window_start : window_start + window_size]
+    for i, (option_text, available, requirement) in enumerate(visible_options):
+        real_index = window_start + i
+        prefix = "► " if real_index == selected_index else "  "
         if available:
-            if i == selected_index:
-                content.append(f"[bold yellow]{prefix}[/bold yellow][bold green]{option_text}[/bold green]")
+            if real_index == selected_index:
+                content.append(
+                    f"[bold yellow]{prefix}[/bold yellow][bold green]{option_text}[/bold green]"
+                )
             else:
                 content.append(f"[green]{prefix}{option_text}[/green]")
         else:
-            if i == selected_index:
-                content.append(f"[bold yellow]{prefix}[/bold yellow][bold red]{option_text}[/bold red] [dim red]({requirement})[/dim red]")
+            if real_index == selected_index:
+                content.append(
+                    f"[bold yellow]{prefix}[/bold yellow][bold red]{option_text}[/bold red] [dim red]({requirement})[/dim red]"
+                )
             else:
-                content.append(f"[red]{prefix}{option_text}[/red] [dim red]({requirement})[/dim red]")
-    
-    # Add padding lines if needed to center content vertically
-    content_lines = len(content)
-    if content_lines < available_height:
-        padding_lines = (available_height - content_lines) // 2
-        content = [""] * padding_lines + content + [""] * padding_lines
-    
+                content.append(
+                    f"[red]{prefix}{option_text}[/red] [dim red]({requirement})[/dim red]"
+                )
     return "\n".join(content)
+
 
 def show_main_menu():
     """
@@ -174,56 +179,77 @@ def show_main_menu():
     # Check component availability
     npm_available = check_npm_availability()
     ws_uris_available = check_websocket_uris()
-    
+
     # Define menu options with their availability status
     menu_options = [
-        ("Show existing streams", npm_available, "NPM required"),
-        ("Add streams manually", npm_available, "NPM required"),
         ("Edit WebSocket URIs", True, ""),
+        ("Install NPM", os.environ.get("DOCKER_COMPOSE_AVAILABLE") == "1", "docker-compose required"),
+        ("Show existing streams", npm_available, "NPM required"),
+        ("Add Manual Stream", npm_available, "NPM required"),
         ("Clear all streams", npm_available, "NPM required"),
         ("Start WebSocket Server", npm_available, "NPM required"),
         ("Start WebSocket Client", ws_uris_available, "WebSocket URIs required"),
-        ("Remote Control Menu", ws_uris_available, "WebSocket URIs required"),
-        ("Exit", True, "")
+        ("Delete NPM", os.path.exists(config.NGINX_BASE_DIR), "NGINX directory does not exist"),
+        ("Manage Auto Start Service", True, ""),
+        ("Exit", True, ""),
     ]
-    
+
     selected_index = 0
-    
+    window_start = 0
+
     while True:
         clear_console()
-        
-        # Get current terminal size
         terminal_width, terminal_height = get_terminal_size()
-        
-        # Create layout
+        # Calcula cuántas opciones caben en la ventana visible (sin centrado ni título extra)
+        window_size = max(
+            1, terminal_height - 15
+        )
+
+        # Ajusta window_start para mantener el selector siempre visible
+        if selected_index < window_start:
+            window_start = selected_index
+        elif selected_index >= window_start + window_size:
+            window_start = selected_index - window_size + 1
+        # Siempre muestra el final si hay menos opciones que window_size
+        if window_start + window_size > len(menu_options):
+            window_start = max(0, len(menu_options) - window_size)
+
         layout = Layout()
         layout.split_column(
             Layout(create_header(), name="header", size=3),
             Layout(name="main"),
-            Layout(create_footer(), name="footer", size=3)
+            Layout(create_footer(), name="footer", size=3),
         )
-        
-        # Create menu content
-        menu_content = create_menu_content(menu_options, selected_index, terminal_height)
+
+        menu_content = create_menu_content(
+            menu_options, selected_index, window_start, window_size
+        )
         layout["main"].update(Panel(menu_content, style="white", padding=(1, 2)))
-        
-        # Print the layout
         console.print(layout)
-        
-        # Handle keyboard input
         try:
             key = get_key()
-            if key == 'up':
+            if key == "up":
                 selected_index = (selected_index - 1) % len(menu_options)
-            elif key == 'down':
+            elif key == "down":
                 selected_index = (selected_index + 1) % len(menu_options)
-            elif key == 'enter':
-                return str(selected_index + 1) if selected_index < len(menu_options) - 1 else "0"
-            elif key == 'esc':
-                return "0"
+            elif key == "enter":
+                _, available, _ = menu_options[selected_index]
+                if available:
+                    return (
+                        str(selected_index + 1)
+                        if selected_index < len(menu_options) - 1
+                        else "0"
+                    )
+                else:
+                    ws_warning("[MENU]", "Option not available. Please select another option.")
+                    time.sleep(1)
+            elif key == "esc":
+                ws_info("[MENU]", "Exiting...")
+                sys.exit(0)
         except KeyboardInterrupt:
-            console.print("\n[bold yellow]Exiting...[/bold yellow]")
+            ws_warning("[MENU]", "Exiting...")
             sys.exit(0)
+
 
 def handle_choice(choice):
     """
@@ -232,57 +258,124 @@ def handle_choice(choice):
     # Check component availability
     npm_available = check_npm_availability()
     ws_uris_available = check_websocket_uris()
-    
-    clear_console()
 
+    clear_console()
     if choice == "1":
+        uri_menu.edit_ws_uris_menu(console)
+    elif choice == "2":
+        if not npms.check_npm_install():
+            npmh.ensure_npm_compose_file()
+            ws_info("[MENU]", "NPM installation initiated. Please start NPM with 'docker-compose up -d' in the ./npm directory.")
+            du.check_and_start_npm()
+            time.sleep(5)
+            npmh.stop_npm()
+            ws_info("[MENU]", "NPM installation completed. You can now start NPM.")
+        else:
+            ws_info("[MENU]", "NPM is already installed and running.")
+        input("\nPress Enter to continue...")
+
+    elif choice == "3":
         if npm_available:
-            console.print("[bold cyan]Showing existing streams...[/bold cyan]")
+            ws_info("[MENU]", "Showing existing streams...")
             sh.show_streams()
         else:
-            console.print("[bold red]NPM is not available. Please start NPM first.[/bold red]")
-        input("\nPress Enter to continue...")
-    elif choice == "2":
-        if npm_available:
-            remote_stream_add.add_streams_manually()
-        else:
-            console.print("[bold red]NPM is not available. Please start NPM first.[/bold red]")
+            ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
-    elif choice == "3":
-        uri_menu.edit_ws_uris_menu(console)
     elif choice == "4":
+        if npm_available:
+            ps.add_manual_stream()
+        else:
+            ws_error("[MENU]", "NPM is not available. Please start NPM first.")
+            input("\nPress Enter to continue...")
+    elif choice == "5":
         if npm_available:
             sc.clear_all_streams()
         else:
-            console.print("[bold red]NPM is not available. Please start NPM first.[/bold red]")
+            ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
-    elif choice == "5":
+    elif choice == "6":
         if npm_available:
             # Set environment variable to indicate running from panel
             os.environ["RUN_FROM_PANEL"] = "1"
             ws_server.start_ws_server()
         else:
-            console.print("[bold red]NPM is not available. Please start NPM first.[/bold red]")
-            input("\nPress Enter to continue...")
-    elif choice == "6":
-        if ws_uris_available:
-            ws_client.start_ws_client()
-        else:
-            console.print("[bold red]No WebSocket URIs defined. Please configure WebSocket URIs first.[/bold red]")
+            ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
     elif choice == "7":
         if ws_uris_available:
-            remote_control.start_remote_control()
+            ws_client.start_ws_client()
         else:
-            console.print("[bold red]No WebSocket URIs defined. Please configure WebSocket URIs first.[/bold red]")
+            ws_error("[MENU]", "No WebSocket URIs defined. Please configure WebSocket URIs first.")
             input("\nPress Enter to continue...")
+    elif choice == "8":
+        delete_npm()
+        input("\nPress Enter to continue...")
+    elif choice == "9":
+        from UI import service_menu
+
+        service_menu.manage_auto_start_service()
+        input("\nPress Enter to continue...")
     elif choice == "0":
         clear_console()
-        console.print("[bold green]Goodbye![/bold green]")
+        # Elimina todos los directorios __pycache__ en el proyecto
+        delete_pycache()
+        ws_info("[MENU]", "Cleaning up temporary files...")
+        time.sleep(1)
+        ws_info("[MENU]", "Exiting the application...")
+        time.sleep(1)
+        ws_info("[MENU]", "Goodbye!")
+        input("\nPress Enter to continue...")
         sys.exit(0)
+    elif choice == "0":
+        clear_console()
+        # Elimina todos los directorios __pycache__ en el proyecto
+        delete_pycache()
+        ws_info("[MENU]", "Cleaning up temporary files...")
+        time.sleep(1)
+        ws_info("[MENU]", "Exiting the application...")
+        time.sleep(1)
+        ws_info("[MENU]", "Goodbye!")
+        input("\nPress Enter to continue...")
+    elif choice == "0":
+        clear_console()
     else:
-        console.print("[bold red]Invalid choice. Please try again.[/bold red]")
+        ws_error("[MENU]", "Invalid choice. Please try again.")
         input("\nPress Enter to continue...")
 
+
+def delete_npm():
+    """
+    Elimina el directorio de Nginx Proxy Manager y sus contenidos.
+    """
+    npm_dir = config.NGINX_BASE_DIR
+    # se imprime el directorio de Nginx Proxy Manager
+    ws_info("[MENU]", f"[bold cyan]Nginx Proxy Manager directory: {npm_dir}[/bold cyan]")
+    if os.path.exists(npm_dir):
+        try:
+            shutil.rmtree(npm_dir)
+            ws_info("[MENU]", "[bold green]Nginx Proxy Manager directory deleted successfully.[/bold green]")
+        except Exception as e:
+            ws_error("[MENU]", f"[bold red]Error deleting Nginx Proxy Manager directory: {e}[/bold red]")
+    else:
+        ws_info("[MENU]", "[bold yellow]Nginx Proxy Manager directory does not exist.[/bold yellow]")
+
+
+def delete_pycache():
+    """
+    Elimina todos los directorios __pycache__ en el proyecto.
+    """
+    for root, dirs, files in os.walk(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ):
+        for d in dirs:
+            if d == "__pycache__":
+                pycache_path = os.path.join(root, d)
+                try:
+                    import shutil
+
+                    shutil.rmtree(pycache_path)
+                except Exception as e:
+                    pass  # Ignorar errores
+
+
 # End of menu.py
-# This file provides the main menu interface and dispatches user choices to the appropriate modules.

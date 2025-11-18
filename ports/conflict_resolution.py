@@ -1,19 +1,3 @@
-"""
-conflict_resolution.py
-
-This module handles port conflict detection and resolution for the NPM Stream Maker system.
-It provides utilities to check for port conflicts in the database, display current conflict resolutions,
-and process incoming port requests from clients, resolving conflicts as needed.
-
-Key functionalities:
-- Display summaries of current conflict resolutions (from DB and files)
-- Check for port conflicts for incoming client requests
-- Broadcast conflict resolutions to connected clients
-- Process and resolve port conflicts, updating the database and notifying clients
-
-Intended for use by the main server process and websocket handlers.
-"""
-
 import json
 import logging
 import os
@@ -31,8 +15,25 @@ from Streams import stream_com_handler as sch
 from Streams import stream_creation as sc
 from Streams import stream_creation_db as scdb
 from npm import npm_handler as npm
+from UI.console_handler import ws_info, ws_error, ws_warning
 
 console = Console()
+
+"""
+conflict_resolution.py
+
+This module handles port conflict detection and resolution for the NPM Stream Maker system.
+It provides utilities to check for port conflicts in the database, display current conflict resolutions,
+and process incoming port requests from clients, resolving conflicts as needed.
+
+Key functionalities:
+- Display summaries of current conflict resolutions (from DB and files)
+- Check for port conflicts for incoming client requests
+- Broadcast conflict resolutions to connected clients
+- Process and resolve port conflicts, updating the database and notifying clients
+
+Intended for use by the main server process and websocket handlers.
+"""
 
 def print_conflict_resolution_summary():
     """
@@ -41,20 +42,17 @@ def print_conflict_resolution_summary():
     # Import here to avoid circular import issues
     from ports.conflict_handler import get_conflict_resolution_info
 
-    console.print("[bold cyan]🔍 DATABASE CONFLICT RESOLUTIONS:[/bold cyan]")
+    ws_info("[CONFLICT]", "[bold cyan]🔍 DATABASE CONFLICT RESOLUTIONS:[/bold cyan]")
 
     conflict_streams = get_conflict_resolution_info()
 
     if conflict_streams:
         for incoming_port, forwarding_host, forwarding_port, protocols in conflict_streams:
             protocol_str = "/".join(protocols)
-            console.print(
-                f"[bold green]🔄[/bold green] Incoming port {incoming_port} → {forwarding_host}:{forwarding_port} ({protocol_str})")
-        console.print(
-            f"[bold cyan]Total database conflict resolutions: {len(conflict_streams)}[/bold cyan]")
+            ws_info("[CONFLICT]", f"[bold green]🔄[/bold green] Incoming port {incoming_port} → {forwarding_host}:{forwarding_port} ({protocol_str})")
+        ws_info("[CONFLICT]", f"[bold cyan]Total database conflict resolutions: {len(conflict_streams)}[/bold cyan]")
     else:
-        console.print(
-            "[bold green]✅ No conflict resolutions found in database[/bold green]")
+        ws_info("[CONFLICT]", "[bold green]✅ No conflict resolutions found in database[/bold green]")
 
 
 def view_port_conflict_resolutions():
@@ -62,18 +60,16 @@ def view_port_conflict_resolutions():
     Shows all current port conflict resolutions, both from the database and from files.
     Also includes client assignments.
     """
-    console.print(
-        "\n[bold cyan]📊 PORT CONFLICT RESOLUTIONS STATUS[/bold cyan]")
-    console.print("=" * 60)
+    ws_info("[CONFLICT]", "\n[bold cyan]📊 PORT CONFLICT RESOLUTIONS STATUS[/bold cyan]")
+    ws_info("[CONFLICT]", "=" * 60)
 
     # Show database conflict resolutions
     try:
         print_conflict_resolution_summary()
     except Exception as e:
-        console.print(
-            f"[bold red]Error reading database conflict resolutions: {e}[/bold red]")
+        ws_error("[CONFLICT]", f"Error reading database conflict resolutions: {e}")
 
-    console.print("")
+    ws_info("[CONFLICT]", "")
 
     # Show saved conflict resolutions from ws_server
     try:
@@ -86,23 +82,18 @@ def view_port_conflict_resolutions():
                 saved_resolutions = json.load(f)
 
             if saved_resolutions:
-                console.print(
-                    f"[bold cyan]💾 SAVED CONFLICT MAPPINGS ({len(saved_resolutions)}):[/bold cyan]")
+                ws_info("[CONFLICT]", f"[bold cyan]💾 SAVED CONFLICT MAPPINGS ({len(saved_resolutions)}):[/bold cyan]")
                 for key, alt_port in saved_resolutions.items():
                     original_port, protocol, server_ip = key.split("|", 2)
-                    console.print(
-                        f"[bold green]📌[/bold green] Server {server_ip}: Port {original_port} ({protocol}) → Alternative port {alt_port}")
+                    ws_info("[CONFLICT]", f"[bold green]📌[/bold green] Server {server_ip}: Port {original_port} ({protocol}) → Alternative port {alt_port}")
             else:
-                console.print(
-                    "[bold green]💾 No saved conflict mappings found[/bold green]")
+                ws_info("[CONFLICT]", "[bold green]💾 No saved conflict mappings found[/bold green]")
         else:
-            console.print(
-                "[bold yellow]💾 No port conflict resolutions file found[/bold yellow]")
+            ws_info("[CONFLICT]", "[bold yellow]💾 No port conflict resolutions file found[/bold yellow]")
     except Exception as e:
-        console.print(
-            f"[bold red]Error reading saved conflict resolutions: {e}[/bold red]")
+        ws_error("[CONFLICT]", f"Error reading saved conflict resolutions: {e}")
 
-    console.print("")
+    ws_info("[CONFLICT]", "")
 
     # Show client assignments
     try:
@@ -112,29 +103,23 @@ def view_port_conflict_resolutions():
                 client_assignments = json.load(f)
 
             if client_assignments:
-                console.print(
-                    f"[bold cyan]📱 CLIENT ASSIGNMENTS ({len(client_assignments)}):[/bold cyan]")
+                ws_info("[CONFLICT]", f"[bold cyan]📱 CLIENT ASSIGNMENTS ({len(client_assignments)}):[/bold cyan]")
                 for key, assignment in client_assignments.items():
                     port, proto = key.split("|", 1)
                     status = "ASSIGNED" if assignment["assigned"] else "CONFLICT RESOLVED"
                     incoming_port = assignment["incoming_port"]
                     if assignment["assigned"]:
-                        console.print(
-                            f"[bold green]✓[/bold green] Port {port} ({proto}) → incoming {incoming_port} ({status})")
+                        ws_info("[CONFLICT]", f"[bold green]✓[/bold green] Port {port} ({proto}) → incoming {incoming_port} ({status})")
                     else:
-                        console.print(
-                            f"[bold yellow]⚠[/bold yellow] Port {port} ({proto}) → alternative incoming {incoming_port} ({status})")
+                        ws_info("[CONFLICT]", f"[bold yellow]⚠[/bold yellow] Port {port} ({proto}) → alternative incoming {incoming_port} ({status})")
             else:
-                console.print(
-                    "[bold green]📱 No client assignments found[/bold green]")
+                ws_info("[CONFLICT]", "[bold green]📱 No client assignments found[/bold green]")
         else:
-            console.print(
-                "[bold yellow]📱 No client assignments file found[/bold yellow]")
+            ws_info("[CONFLICT]", "[bold yellow]📱 No client assignments file found[/bold yellow]")
     except Exception as e:
-        console.print(
-            f"[bold red]Error reading client assignments: {e}[/bold red]")
+        ws_error("[CONFLICT]", f"Error reading client assignments: {e}")
 
-    console.print("\n[bold green]Press Enter to continue...[/bold green]")
+    ws_info("[CONFLICT]", "\n[bold green]Press Enter to continue...[/bold green]")
     input()
 
 
@@ -145,12 +130,10 @@ def check_port_conflicts(requested_ports, client_ip=None):
     Only considers a conflict if the port is used by a different IP.
     Returns a dictionary with the status of each port.
     """
-    console.print(
-        f"[bold cyan][STREAM_MANAGER][/bold cyan] Checking conflicts for {len(requested_ports)} ports from client {client_ip}")
+    ws_info("[STREAM_MANAGER]", f"Checking conflicts for {len(requested_ports)} ports from client {client_ip}")
 
     if not os.path.exists(cfg.SQLITE_DB_PATH):
-        console.print(
-            f"[bold yellow][STREAM_MANAGER][/bold yellow] Database not found: {cfg.SQLITE_DB_PATH}")
+        ws_info("[STREAM_MANAGER]", f"Database not found: {cfg.SQLITE_DB_PATH}")
         return {port: {"has_conflict": False, "existing_stream": None} for port, _ in requested_ports}
 
     conflict_info = {}
@@ -160,8 +143,7 @@ def check_port_conflicts(requested_ports, client_ip=None):
         cur = conn.cursor()
 
         for port, protocol in requested_ports:
-            console.print(
-                f"[bold blue][STREAM_MANAGER][/bold blue] Checking port {port} ({protocol})")
+            ws_info("[STREAM_MANAGER]", f"Checking port {port} ({protocol})")
 
             # Check if port is used by a DIFFERENT IP address
             if protocol.lower() == "tcp":
@@ -185,8 +167,7 @@ def check_port_conflicts(requested_ports, client_ip=None):
 
             if existing_stream:
                 # Real conflict found - port used by different IP
-                console.print(
-                    f"[bold red][STREAM_MANAGER][/bold red] CONFLICT: Port {port} ({protocol}) already used by different IP: {existing_stream[1]}")
+                ws_error("[STREAM_MANAGER]", f"CONFLICT: Port {port} ({protocol}) already used by different IP: {existing_stream[1]}")
                 conflict_info[port] = {
                     "has_conflict": True,
                     "existing_stream": {
@@ -216,11 +197,9 @@ def check_port_conflicts(requested_ports, client_ip=None):
                 same_client_stream = cur.fetchone()
 
                 if same_client_stream:
-                    console.print(
-                        f"[bold green][STREAM_MANAGER][/bold green] No conflict: Port {port} ({protocol}) already used by same client {client_ip}")
+                    ws_info("[STREAM_MANAGER]", f"No conflict: Port {port} ({protocol}) already used by same client {client_ip}")
                 else:
-                    console.print(
-                        f"[bold green][STREAM_MANAGER][/bold green] No conflict: Port {port} ({protocol}) is available")
+                    ws_info("[STREAM_MANAGER]", f"No conflict: Port {port} ({protocol}) is available")
 
                 conflict_info[port] = {
                     "has_conflict": False,
@@ -228,8 +207,7 @@ def check_port_conflicts(requested_ports, client_ip=None):
                 }
 
     except Exception as e:
-        console.print(
-            f"[bold red][STREAM_MANAGER][/bold red] Error checking port conflicts: {e}")
+        ws_error("[STREAM_MANAGER]", f"Error checking port conflicts: {e}")
         # Return no conflicts on error to be safe
         conflict_info = {port: {"has_conflict": False,
                                 "existing_stream": None} for port, _ in requested_ports}
@@ -238,8 +216,7 @@ def check_port_conflicts(requested_ports, client_ip=None):
 
     conflicts_found = sum(
         1 for info in conflict_info.values() if info["has_conflict"])
-    console.print(
-        f"[bold cyan][STREAM_MANAGER][/bold cyan] Conflict check complete: {conflicts_found} real conflicts found out of {len(requested_ports)} ports")
+    ws_info("[STREAM_MANAGER]", f"Conflict check complete: {conflicts_found} real conflicts found out of {len(requested_ports)} ports")
 
     return conflict_info
 
@@ -255,7 +232,7 @@ async def broadcast_port_conflict_resolutions(conflicts):
 
     # Build message for other servers
     conflict_message = {
-        "type": "port_conflict_resolutions",
+        "type": "client_port_conflict_resolutions",
         "conflicts": conflicts,
         "timestamp": int(time.time())
     }
@@ -273,7 +250,7 @@ async def broadcast_port_conflict_resolutions(conflicts):
             # Send the conflict resolution to this client
             await ws.send(json.dumps(conflict_message))
             broadcasted_to += 1
-            console.print(f"[bold green][WS][/bold green] Sent conflict resolutions to {client_info.get('hostname', 'unknown')} ({client_info.get('ip', 'unknown')})")
+            ws_info("[WS]", f"Sent conflict resolutions to {client_info.get('hostname', 'unknown')} ({client_info.get('ip', 'unknown')})")
 
         except Exception as ex:
             logging.debug(f"Failed to send conflict resolution to {client_id}: {ex}")
@@ -284,7 +261,7 @@ async def broadcast_port_conflict_resolutions(conflicts):
         if dc_id in cfg.connected_clients:
             del cfg.connected_clients[dc_id]
 
-    console.print(f"[bold cyan][WS][/bold cyan] Broadcasted port conflict resolutions to {broadcasted_to} servers")
+    ws_info("[WS]", f"Broadcasted port conflict resolutions to {broadcasted_to} servers")
 
 # Copied: main entry point for processing incoming port requests and resolving conflicts
 async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket):
@@ -303,7 +280,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
     - Send results back to the client
     """
 
-    console.print(f"[bold cyan][WS][/bold cyan] Processing {len(ports)} ports from {hostname} ({ip}) - conflict resolution mode")
+    ws_info("[WS]", f"Processing {len(ports)} ports from {hostname} ({ip}) - conflict resolution mode")
 
     # Convert ports to check format and pass client IP
     ports_to_check = [(entry.get("port"), entry.get("protocol", "tcp")) for entry in ports if entry.get("port")]
@@ -329,7 +306,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
 
         if existing_stream_id:
             # Stream already exists for this client - just acknowledge it
-            console.print(f"[bold blue][WS][/bold blue] Stream already exists for client {ip}: Port {port} ({protocol}) - Stream ID {existing_stream_id}")
+            ws_info("[WS]", f"Stream already exists for client {ip}: Port {port} ({protocol}) - Stream ID {existing_stream_id}")
             existing_client_ports.append(entry)
         else:
             # Check if there's an existing conflict resolution for this port
@@ -337,7 +314,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
 
             if existing_resolution:
                 incoming_port, stream_id = existing_resolution
-                console.print(f"[bold yellow][WS][/bold yellow] Existing conflict resolution found for {ip}: Port {port} ({protocol}) → incoming port {incoming_port} (Stream ID {stream_id})")
+                ws_info("[WS]", f"Existing conflict resolution found for {ip}: Port {port} ({protocol}) → incoming port {incoming_port} (Stream ID {stream_id})")
                 existing_conflict_resolutions.append({
                     "entry": entry,
                     "incoming_port": incoming_port,
@@ -350,10 +327,10 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
                 # Real conflict with different client - needs new resolution
                 conflict_ports.append(entry)
 
-    console.print(f"[bold green][WS][/bold green] Existing client streams: {len(existing_client_ports)}")
-    console.print(f"[bold yellow][WS][/bold yellow] Existing conflict resolutions: {len(existing_conflict_resolutions)}")
-    console.print(f"[bold green][WS][/bold green] Ports without conflicts: {len(no_conflict_ports)}")
-    console.print(f"[bold red][WS][/bold red] Ports needing new conflict resolution: {len(conflict_ports)}")
+    ws_info("[WS]", f"Existing client streams: {len(existing_client_ports)}")
+    ws_info("[WS]", f"Existing conflict resolutions: {len(existing_conflict_resolutions)}")
+    ws_info("[WS]", f"Ports without conflicts: {len(no_conflict_ports)}")
+    ws_info("[WS]", f"Ports needing new conflict resolution: {len(conflict_ports)}")
 
     # Process results
     result_ports = []
@@ -392,7 +369,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
 
         if new_entries:
             sc.add_streams_sqlite_with_ip_extended(new_entries)
-            console.print(f"[bold green][WS][/bold green] Created {len(new_entries)} new streams without conflicts")
+            ws_info("[WS]", f"Created {len(new_entries)} new streams without conflicts")
 
         # Add to results
         for entry in no_conflict_ports:
@@ -438,21 +415,22 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
 
         if conflict_entries:
             sc.add_streams_sqlite_with_ip_extended(conflict_entries)
-            console.print(f"[bold yellow][WS][/bold yellow] Created {len(conflict_entries)} NEW conflict resolution streams")
+            ws_info("[WS]", f"Created {len(conflict_entries)} NEW conflict resolution streams")
 
     # Sync and reload NPM only if there were actual changes
     if no_conflict_ports or conflict_ports:
         scdb.sync_streams_conf_with_sqlite()
         npm.reload_npm()
-        console.print(f"[bold green][WS][/bold green] Configuration synced and NPM reloaded")
+        ws_info("[WS]", f"Configuration synced and NPM reloaded")
     else:
-        console.print(f"[bold blue][WS][/bold blue] No new streams created - all ports already exist or have existing resolutions")
+        ws_info("[WS]", f"No new streams created - all ports already exist or have existing resolutions")
 
     # Send response to client
     total_processed = len(existing_client_ports) + len(existing_conflict_resolutions) + len(no_conflict_ports) + len(conflict_ports)
 
     response = {
         "status": "ok",
+        "type": "client_port_conflict_resolution_response",
         "msg": f"Processed {total_processed} ports. {len(existing_client_ports)} existing, {len(existing_conflict_resolutions)} existing resolutions, {len(no_conflict_ports)} new, {len(conflict_resolutions)} new conflicts resolved.",
         "resultados": result_ports,
         "conflict_resolutions": conflict_resolutions,

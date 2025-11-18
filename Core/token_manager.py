@@ -1,11 +1,13 @@
 import os
 import secrets
 import sys
+from dotenv import load_dotenv
 
 # Add the parent directory to sys.path to allow importing configuration modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import ws_config_handler as WebSocketConfig
 from Config import config as cfg
+from UI.console_handler import ws_info, ws_error, ws_warning
 
 # This module handles the creation, retrieval, and loading of WebSocket authentication tokens
 # for both server and client modes. It interacts with configuration files and environment variables
@@ -25,22 +27,18 @@ def get_or_create_token(console, mode):
             new_token = secrets.token_urlsafe(32)
             server_token = new_token
             WebSocketConfig.save_ws_config(server_token=server_token)
-            console.print(
-                f"[green]WebSocket server token generated and saved in {cfg.ENV_FILE}[/green]")
-            console.print(
-                f"[yellow]Server Token: [bold]{server_token}[/bold][/yellow]")
+            ws_info("[WS]", f"WebSocket server token generated and saved in {cfg.ENV_FILE}")
+            ws_info("[WS]", f"Server Token: [bold]{server_token}[/bold]")
         else:
-            console.print(
-                f"[green]WebSocket server token already exists in {cfg.ENV_FILE}[/green]")
-            console.print(
-                f"[yellow]Server Token: [bold]{server_token}[/bold][/yellow]")
+            ws_info("[WS]", f"WebSocket server token already exists in {cfg.ENV_FILE}")
+            ws_info("[WS]", f"Server Token: [bold]{server_token}[/bold]")
         # Set the token as an environment variable for the server
         os.environ["WS_TOKEN_SERVER"] = server_token
         return server_token
 
     elif mode == "client":
         # Print and return the configured client tokens
-        console.print(WebSocketConfig.get_ws_config())
+        ws_info("[WS]", f"Client Tokens: {tokens}")
         return tokens
 
 # Redundant import, but kept for clarity in this context
@@ -51,10 +49,6 @@ def load_ws_token():
     Loads the server token from the .env file using the WS_TOKEN_SERVER variable.
     If it does not exist, returns None (do not use a default value for security reasons).
     """
-    env_file = ".env"
-    if os.path.exists(env_file):
-        with open(env_file, "r") as f:
-            for line in f:
-                if line.startswith("WS_TOKEN_SERVER="):
-                    return line.strip().split("=", 1)[1]
-    return None
+    load_dotenv()  # Carga las variables de entorno desde .env
+    return os.getenv("WS_TOKEN_SERVER")
+

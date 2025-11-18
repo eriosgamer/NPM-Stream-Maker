@@ -154,13 +154,6 @@ NPM Stream Maker/
 │   ├── conflict_cleaner.py        # Obsolete conflict cleanup
 │   └── ports_utils.py             # General port utilities
 │
-├── Remote/                         # Remote control and distributed management (WIP)
-│   ├── remote_control.py          # Main remote controller (WIP)
-│   ├── remote_handler.py          # Remote operations handler (WIP)
-│   ├── remote_stream_add.py       # Remote stream addition via WebSocket (WIP)
-│   ├── menu.py                    # Remote control menu (WIP)
-│   ├── validation.py              # Remote data validation (WIP)
-│   └── extra_utils.py             # Additional remote utilities (WIP)
 │
 ├── Server/                         # WebSocket server
 │   └── ws_server.py               # Main WebSocket server with client management
@@ -364,4 +357,5 @@ This project is licensed under the MIT License with Non-Commercial Clause - see 
 
 ## Support and Documentation
 
+For more information about the specific use of each module, review the detailed comments in each source code file. Each module includes extensive documentation about its functionality and use cases.
 For more information about the specific use of each module, review the detailed comments in each source code file. Each module includes extensive documentation about its functionality and use cases.

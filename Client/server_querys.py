@@ -3,6 +3,7 @@ import time
 import websockets
 import json
 from rich.console import Console
+from UI.console_handler import ws_info, ws_error
 
 console = Console()
 
@@ -38,11 +39,12 @@ async def query_server_capabilities(uri, token):
             token_result = json.loads(token_response)
             
             if token_result.get("status") != "ok":
-                console.print(f"[bold red][WS_CLIENT][/bold red] Token validation failed for {uri}")
+                ws_error("[WS_CLIENT]", f"Token validation failed for {uri}")
                 return None
             
             # Query server capabilities
             capabilities_query = {
+                "type": "query_capabilities",
                 "token": token,
                 "query_capabilities": True
             }
@@ -55,17 +57,17 @@ async def query_server_capabilities(uri, token):
             
             if capabilities.get("status") == "ok":
                 server_caps = capabilities.get("server_capabilities", {})
-                console.print(f"[bold green][WS_CLIENT][/bold green] Server {uri} capabilities:")
-                console.print(f"[bold white]  - Type: {server_caps.get('server_type', 'unknown')}[/bold white]")
-                console.print(f"[bold white]  - Has WireGuard: {server_caps.get('has_wireguard', False)}[/bold white]")
-                console.print(f"[bold white]  - Conflict Resolution: {server_caps.get('conflict_resolution_server', False)}[/bold white]")
+                ws_info("[WS_CLIENT]", f"Server {uri} capabilities:")
+                ws_info("[WS_CLIENT]", f"  - Type: {server_caps.get('server_type', 'unknown')}")
+                ws_info("[WS_CLIENT]", f"  - Has WireGuard: {server_caps.get('has_wireguard', False)}")
+                ws_info("[WS_CLIENT]", f"  - Conflict Resolution: {server_caps.get('conflict_resolution_server', False)}")
                 return server_caps
             else:
-                console.print(f"[bold red][WS_CLIENT][/bold red] Failed to query capabilities for {uri}: {capabilities.get('msg', 'unknown error')}")
+                ws_error("[WS_CLIENT]", f"Failed to query capabilities for {uri}: {capabilities.get('msg', 'unknown error')}")
                 return None
                 
     except Exception as e:
-        console.print(f"[bold red][WS_CLIENT][/bold red] Error querying capabilities for {uri}: {e}")
+        ws_error("[WS_CLIENT]", f"Error querying capabilities for {uri}: {e}")
         return None
 
 # Copied
@@ -84,7 +86,7 @@ async def send_ports_to_conflict_resolution_server(uri, token, local_ip, hostnam
     Returns:
         dict: Server response or None if failed
     """
-    console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Sending {len(new_ports)} ports to conflict resolution server: {uri}")
+    ws_info("[WS_CLIENT]", f"Sending {len(new_ports)} ports to conflict resolution server: {uri}")
 
     try:
         async with websockets.connect(
@@ -102,11 +104,12 @@ async def send_ports_to_conflict_resolution_server(uri, token, local_ip, hostnam
             token_result = json.loads(token_response)
 
             if token_result.get("status") != "ok":
-                console.print(f"[bold red][WS_CLIENT][/bold red] Token validation failed")
+                ws_error("[WS_CLIENT]", "Token validation failed")
                 return None
 
             # Send ports for conflict resolution
             data = {
+                "type": "conflict_resolution_ports",
                 "ip": local_ip,
                 "hostname": hostname,
                 "token": token,
@@ -125,14 +128,17 @@ async def send_ports_to_conflict_resolution_server(uri, token, local_ip, hostnam
             response = json.loads(response_msg)
 
             if response.get("status") == "ok":
-                console.print(f"[bold green][WS_CLIENT][/bold green] Conflict resolution successful")
+                ws_info("[WS_CLIENT]", "Conflict resolution successful")
+                # Log cantidad de puertos aprobados
+                resultados = response.get("resultados", [])
+                ws_info("[WS_CLIENT]", f"Puertos aprobados por CR: {len(resultados)}")
                 return response
             else:
-                console.print(f"[bold red][WS_CLIENT][/bold red] Conflict resolution failed: {response.get('msg', 'unknown error')}")
+                ws_error("[WS_CLIENT]", f"Conflict resolution failed: {response.get('msg', 'unknown error')}")
                 return None
 
     except Exception as e:
-        console.print(f"[bold red][WS_CLIENT][/bold red] Error with conflict resolution server: {e}")
+        ws_error("[WS_CLIENT]", f"Error with conflict resolution server: {e}")
         return None
 
 # --- Module summary ---

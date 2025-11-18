@@ -6,6 +6,7 @@ import sys
 # Add the parent directory to sys.path to allow importing the config module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 console = Console()
 
@@ -43,8 +44,7 @@ def check_if_stream_exists_for_client(incoming_port, protocol, client_ip):
         return result[0] if result else None
 
     except Exception as e:
-        console.print(
-            f"[bold red][STREAM_MANAGER][/bold red] Error checking existing stream: {e}")
+        ws_error("[STREAM_MANAGER]", f"Error checking existing stream: {e}")
         return None
     finally:
         conn.close()
@@ -57,13 +57,11 @@ def get_next_available_ports(conflict_ports, count_needed):
     """
     # Check if the database file exists
     if not os.path.exists(cfg.SQLITE_DB_PATH):
-        console.print(
-            f"[bold yellow][STREAM_MANAGER][/bold yellow] Database not found: {cfg.SQLITE_DB_PATH}")
+        ws_warning("[STREAM_MANAGER]", f"Database not found: {cfg.SQLITE_DB_PATH}")
         # Return default alternative ports
         return [port + 10000 for port in conflict_ports[:count_needed]]
 
-    console.print(
-        f"[bold cyan][STREAM_MANAGER][/bold cyan] Finding {count_needed} alternative ports for: {conflict_ports}")
+    ws_info("[STREAM_MANAGER]", f"Finding {count_needed} alternative ports for: {conflict_ports}")
 
     # Get all ports currently in use
     used_ports = set()
@@ -76,16 +74,14 @@ def get_next_available_ports(conflict_ports, count_needed):
     finally:
         conn.close()
 
-    console.print(
-        f"[bold cyan][STREAM_MANAGER][/bold cyan] Found {len(used_ports)} ports already in use")
+    ws_info("[STREAM_MANAGER]", f"Found {len(used_ports)} ports already in use")
 
     # Search for available ports in the alternative range
     alternative_ports = []
     search_range_start = 35000
     search_range_end = 35999
 
-    console.print(
-        f"[bold cyan][STREAM_MANAGER][/bold cyan] Searching in range {search_range_start}-{search_range_end}")
+    ws_info("[STREAM_MANAGER]", f"Searching in range {search_range_start}-{search_range_end}")
 
     for port in range(search_range_start, search_range_end + 1):
         if port not in used_ports:
@@ -94,14 +90,12 @@ def get_next_available_ports(conflict_ports, count_needed):
                 break
 
     if len(alternative_ports) < count_needed:
-        console.print(
-            f"[bold red][STREAM_MANAGER][/bold red] Warning: Only found {len(alternative_ports)} alternative ports, needed {count_needed}")
+        ws_warning("[STREAM_MANAGER]", f"Warning: Only found {len(alternative_ports)} alternative ports, needed {count_needed}")
         # Fill remaining with higher ports
         for i in range(len(alternative_ports), count_needed):
             alternative_ports.append(search_range_end + 1 + i)
 
-    console.print(
-        f"[bold cyan][STREAM_MANAGER][/bold cyan] Alternative ports assigned: {alternative_ports}")
+    ws_info("[STREAM_MANAGER]", f"Alternative ports assigned: {alternative_ports}")
     return alternative_ports
 
 
@@ -140,8 +134,7 @@ def check_existing_conflict_resolution(client_ip, original_port, protocol):
         return result if result else None
 
     except Exception as e:
-        console.print(
-            f"[bold red][STREAM_MANAGER][/bold red] Error checking existing conflict resolution: {e}")
+        ws_error("[STREAM_MANAGER]", f"Error checking existing conflict resolution: {e}")
         return None
     finally:
         conn.close()

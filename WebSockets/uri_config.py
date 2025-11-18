@@ -9,6 +9,7 @@ console = Console()
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 from WebSockets import diagnostics
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 def check_pending_uri_updates():
     """
@@ -23,7 +24,7 @@ def check_pending_uri_updates():
                 pending_updates = json.load(f)
 
             # Print the number of pending URI updates found
-            console.print(f"[bold cyan][WS_CLIENT][/bold cyan] Found pending URI updates: {len(pending_updates)} changes")
+            ws_info("[WS_CLIENT]", f"[bold cyan] Found pending URI updates: {len(pending_updates)} changes[/bold cyan]")
 
             # Apply updates to environment variables (typically done by Control Panel)
             if "uris" in pending_updates:
@@ -33,14 +34,14 @@ def check_pending_uri_updates():
 
             # Remove the pending file after applying updates
             os.remove(pending_file)
-            console.print("[bold green][WS_CLIENT][/bold green] Applied pending URI updates")
+            ws_info("[WS_CLIENT]", "[bold green] Applied pending URI updates[/bold green]")
 
         except Exception as e:
             # Print error if there was a problem applying updates
-            console.print(f"[bold red][WS_CLIENT][/bold red] Error applying pending updates: {e}")
+            ws_error("[WS_CLIENT]", f"[bold red] Error applying pending updates: {e}[/bold red]")
     else:
         # Print if no pending updates were found
-        console.print("[bold blue][WS_CLIENT][/bold blue] No pending URI updates found")
+        ws_info("[WS_CLIENT]", "[bold blue] No pending URI updates found[/bold blue]")
 
 
 # Copied
@@ -67,20 +68,20 @@ def has_uri_config_changed():
 
             if current_hash != saved_hash:
                 # Print if configuration has changed
-                console.print("[bold cyan][WS_CLIENT][/bold cyan] URI configuration has changed")
+                ws_info("[WS_CLIENT]", "[bold cyan] URI configuration has changed[/bold cyan]")
                 return True
             else:
                 # Print if configuration is unchanged
-                console.print("[bold green][WS_CLIENT][/bold green] URI configuration unchanged")
+                ws_info("[WS_CLIENT]", "[bold green] URI configuration unchanged[/bold green]")
                 return False
 
         except Exception as e:
             # Print warning if there was a problem reading the hash
-            console.print(f"[bold yellow][WS_CLIENT][/bold yellow] Error reading config hash: {e}")
+            ws_warning("[WS_CLIENT]", f" Error reading config hash: {e}")
             return True
     else:
         # Print if no previous configuration hash was found
-        console.print("[bold cyan][WS_CLIENT][/bold cyan] No previous configuration hash found")
+        ws_info("[WS_CLIENT]", "[bold cyan] No previous configuration hash found[/bold cyan]")
         return True
 
 
@@ -104,8 +105,8 @@ def save_last_uri_config():
             f.write(current_hash)
 
         # Print confirmation that the hash was saved
-        console.print("[bold green][WS_CLIENT][/bold green] Saved URI configuration hash")
+        ws_info("[WS_CLIENT]", "[bold green] Saved URI configuration hash[/bold green]")
 
     except Exception as e:
         # Print error if there was a problem saving the hash
-        console.print(f"[bold red][WS_CLIENT][/bold red] Error saving config hash: {e}")
+        ws_error("[WS_CLIENT]", f"[bold red] Error saving config hash: {e}[/bold red]")
