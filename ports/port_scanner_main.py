@@ -116,8 +116,14 @@ def gen_ports_file():
     ws_info("[PORT_SCANNER]", opnsense_alt_list)
 
     # Save ports in plain text in ports.txt (range format, single line, no spaces)
-    with open("ports.txt", "w") as f:
-        f.write(opnsense_alt_list)
+    try:
+        ws_info("[PORT_SCANNER]", "Intentando generar ports.txt...")
+        with open("ports.txt", "w") as f:
+            f.write(opnsense_alt_list)
+        ws_info("[PORT_SCANNER]", "ports.txt generado correctamente.")
+    except Exception as e:
+        ws_error("[PORT_SCANNER]", f"Error al generar ports.txt: {e}")
+        return
 
     # Create a metadata file with generation info
     metadata = {
@@ -130,23 +136,33 @@ def gen_ports_file():
         "version": "2.0",
     }
 
-    with open("ports_metadata.json", "w") as f:
-        json.dump(metadata, f, indent=2)
+    try:
+        ws_info("[PORT_SCANNER]", "Intentando generar ports_metadata.json...")
+        with open("ports_metadata.json", "w") as f:
+            json.dump(metadata, f, indent=2)
+        ws_info("[PORT_SCANNER]", "ports_metadata.json generado correctamente.")
+    except Exception as e:
+        ws_error("[PORT_SCANNER]", f"Error al generar ports_metadata.json: {e}")
 
     # Verify the file was written correctly
-    file_size = os.path.getsize("ports.txt")
-    ws_info("[PORT_SCANNER]", f"ports.txt file generated successfully!")
-    ws_info("[PORT_SCANNER]", f"Generated on: {metadata['generated_date']}")
-    ws_info("[PORT_SCANNER]", f"File size: {file_size} bytes")
-    ws_info("[PORT_SCANNER]", f"Total unique ports: {len(unique_alternative_ports)}")
-    ws_info("[PORT_SCANNER]", f"Port ranges: {len(alt_ranges)}")
-    ws_info("[PORT_SCANNER]", f"AMP templates processed: {total_files}")
-    ws_info("[PORT_SCANNER]", f"Steam/game ports included: {len(steam_ports)}")
-
-    # Show a preview of the content
-    with open("ports.txt", "r") as f:
-        content_preview = f.read(200)  # First 200 chars
-    ws_info("[PORT_SCANNER]", f"[bold yellow]Content preview: {content_preview}...")
+    if os.path.exists("ports.txt"):
+        file_size = os.path.getsize("ports.txt")
+        ws_info("[PORT_SCANNER]", f"ports.txt file generated successfully!")
+        ws_info("[PORT_SCANNER]", f"Generated on: {metadata['generated_date']}")
+        ws_info("[PORT_SCANNER]", f"File size: {file_size} bytes")
+        ws_info("[PORT_SCANNER]", f"Total unique ports: {len(unique_alternative_ports)}")
+        ws_info("[PORT_SCANNER]", f"Port ranges: {len(alt_ranges)}")
+        ws_info("[PORT_SCANNER]", f"AMP templates processed: {total_files}")
+        ws_info("[PORT_SCANNER]", f"Steam/game ports included: {len(steam_ports)}")
+        # Show a preview of the content
+        try:
+            with open("ports.txt", "r") as f:
+                content_preview = f.read(200)  # First 200 chars
+            ws_info("[PORT_SCANNER]", f"[bold yellow]Content preview: {content_preview}...")
+        except Exception as e:
+            ws_error("[PORT_SCANNER]", f"Error al leer preview de ports.txt: {e}")
+    else:
+        ws_error("[PORT_SCANNER]", "ports.txt no existe tras la generación. Verifica permisos y ruta.")
 
     # Delete the cloned repository to clean up
     try:
