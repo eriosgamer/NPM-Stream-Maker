@@ -186,8 +186,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         ws_info("[WS_CLIENT]", ports_txt_content)
                     except Exception as e:
                         ws_error("[WS_CLIENT]", f"Error reading ports.txt: {e}")
-
-                current_ports = ps.get_listening_ports_with_proto()
+                        
                 # DEBUG: Print parsed ports by client on Windows
                 if os.name == "nt":
                     ws_info("[WS_CLIENT]", "Ports parsed by the client:")

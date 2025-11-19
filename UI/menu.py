@@ -84,27 +84,6 @@ def get_key():
     return None
 
 
-def check_npm_availability():
-    """
-    Check if NPM is running and accessible.
-    """
-    try:
-        return npms.check_npm_install()
-    except:
-        return False
-
-
-def check_websocket_uris():
-    """
-    Check if WebSocket URIs are defined.
-    """
-    try:
-        uris = diagnostics.get_ws_uris_and_tokens()
-        return len(uris) > 0
-    except:
-        return False
-
-
 def get_terminal_size():
     """
     Get the current terminal size.
@@ -177,20 +156,20 @@ def show_main_menu():
     Displays the main menu of the application with navigation by arrow keys and adaptive layout.
     """
     # Check component availability
-    npm_available = check_npm_availability()
-    ws_uris_available = check_websocket_uris()
+    npm_available = npms.check_npm_install()
+    ws_uris_available = diagnostics.get_ws_uris_and_tokens()
 
     # Define menu options with their availability status
     menu_options = [
         ("Edit WebSocket URIs", True, ""),
+        ("Manage Streams", npm_available, "NPM required"),
+        ("Start Server", npm_available, "NPM required"),
+        ("Start Client", ws_uris_available, "WebSocket URIs required"),
         (
             "Install NPM",
             os.environ.get("DOCKER_COMPOSE_AVAILABLE") == "1",
             "docker-compose required",
         ),
-        ("Administrar Streams", npm_available, "NPM required"),
-        ("Start WebSocket Server", npm_available, "NPM required"),
-        ("Start WebSocket Client", ws_uris_available, "WebSocket URIs required"),
         (
             "Delete NPM",
             os.path.exists(config.NGINX_BASE_DIR),
@@ -262,13 +241,13 @@ def handle_choice(choice):
     Executes the corresponding action according to the selected option in the main menu.
     """
     # Check component availability
-    npm_available = check_npm_availability()
-    ws_uris_available = check_websocket_uris()
+    npm_available = npms.check_npm_install()
+    ws_uris_available = diagnostics.get_ws_uris_and_tokens()
 
     clear_console()
     if choice == "1":
         uri_menu.edit_ws_uris_menu(console)
-    elif choice == "2":
+    elif choice == "5":
         if not npms.check_npm_install():
             npmh.ensure_npm_compose_file()
             ws_info(
@@ -282,14 +261,13 @@ def handle_choice(choice):
         else:
             ws_info("[MENU]", "NPM is already installed and running.")
         input("\nPress Enter to continue...")
-
-    elif choice == "3":
+    elif choice == "2":
         if npm_available:
             stream_menu_manager.stream_menu_manager()
         else:
             ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
-    elif choice == "4":
+    elif choice == "3":
         if npm_available:
             # Set environment variable to indicate running from panel
             os.environ["RUN_FROM_PANEL"] = "1"
@@ -297,7 +275,7 @@ def handle_choice(choice):
         else:
             ws_error("[MENU]", "NPM is not available. Please start NPM first.")
             input("\nPress Enter to continue...")
-    elif choice == "5":
+    elif choice == "4":
         if ws_uris_available:
             ws_client.start_ws_client()
         else:

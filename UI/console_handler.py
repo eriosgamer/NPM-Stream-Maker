@@ -934,12 +934,14 @@ def ws_error(
     """WebSocket error message"""
     if suggestions:
         console_handler.print_error_panel(component, "Error", message, suggestions)
+        time.sleep(3)  # Pequeña pausa para asegurar que el panel se muestra
         # Para paneles de error, también guardar el mensaje limpio
         clean_msg = console_handler._strip_markup(message)
     else:
         console_handler.print_message(
             component, message, MessageType.ERROR, details, interpret_markup=True
         )
+        time.sleep(3)  # Pequeña pausa para asegurar que el mensaje se muestra
         clean_msg = console_handler._strip_markup(message)
     ensure_log_file()
     append_to_log(f"[ERROR] [{component}] {clean_msg} - {details if details else ''}")

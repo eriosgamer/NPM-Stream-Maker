@@ -2,7 +2,9 @@ import argparse
 import logging
 import os
 import sys
-import asyncio
+import dotenv
+
+dotenv.load_dotenv()
 
 # Add the parent directory to sys.path to allow importing modules from parent folders
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -14,11 +16,6 @@ from Client import ws_client
 from UI.console_handler import ws_info, ws_error
 
 from rich.console import Console
-
-# Load environment variables from .env file
-from dotenv import load_dotenv
-
-load_dotenv()
 
 console = Console()
 
