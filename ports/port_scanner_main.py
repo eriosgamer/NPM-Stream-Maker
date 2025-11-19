@@ -18,6 +18,28 @@ from UI.console_handler import ws_info, ws_error, ws_warning
 
 load_dotenv()
 
+# Delete the cloned repository to clean up
+import stat
+def make_writable_recursive(path):
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            try:
+                os.chmod(os.path.join(root, name), stat.S_IWRITE)
+            except Exception as e:
+                ws_error("[PORT_SCANNER]", f"No se pudo cambiar permisos de {name}: {e}")
+        for name in dirs:
+            try:
+                os.chmod(os.path.join(root, name), stat.S_IWRITE)
+            except Exception as e:
+                ws_error("[PORT_SCANNER]", f"No se pudo cambiar permisos de carpeta {name}: {e}")
+
+def on_rm_error(func, path, exc_info):
+    try:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    except Exception as e:
+        ws_error("[PORT_SCANNER]", f"No se pudo eliminar {path}: {e}")
+
 
 def gen_ports_file():
     """
@@ -178,28 +200,6 @@ def gen_ports_file():
             "[PORT_SCANNER]",
             "ports.txt no existe tras la generación. Verifica permisos y ruta.",
         )
-
-    # Delete the cloned repository to clean up
-    import stat
-    def make_writable_recursive(path):
-        for root, dirs, files in os.walk(path):
-            for name in files:
-                try:
-                    os.chmod(os.path.join(root, name), stat.S_IWRITE)
-                except Exception as e:
-                    ws_error("[PORT_SCANNER]", f"No se pudo cambiar permisos de {name}: {e}")
-            for name in dirs:
-                try:
-                    os.chmod(os.path.join(root, name), stat.S_IWRITE)
-                except Exception as e:
-                    ws_error("[PORT_SCANNER]", f"No se pudo cambiar permisos de carpeta {name}: {e}")
-
-    def on_rm_error(func, path, exc_info):
-        try:
-            os.chmod(path, stat.S_IWRITE)
-            func(path)
-        except Exception as e:
-            ws_error("[PORT_SCANNER]", f"No se pudo eliminar {path}: {e}")
 
     try:
         make_writable_recursive(repo_dir)
