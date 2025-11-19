@@ -35,17 +35,34 @@ def fix_permissions(path, uid=None, gid=None):
     """
     Cambia recursivamente el propietario de todos los archivos y carpetas en 'path' al usuario y grupo dados.
     Si uid/gid no se especifican, usa los del usuario actual.
+    Compatible con Windows y Unix.
     """
+    def get_uid_safe():
+        import os
+        if hasattr(os, "getuid"):
+            return os.getuid()
+        else:
+            return None
+
+    def get_gid_safe():
+        import os
+        if hasattr(os, "getgid"):
+            return os.getgid()
+        else:
+            return None
+
     if uid is None:
-        uid = os.getuid()
+        uid = get_uid_safe()
     if gid is None:
-        gid = os.getgid()
-    for root, dirs, files in os.walk(path):
-        for momo in dirs:
-            os.chown(os.path.join(root, momo), uid, gid)
-        for momo in files:
-            os.chown(os.path.join(root, momo), uid, gid)
-    os.chown(path, uid, gid)
+        gid = get_gid_safe()
+    # Solo ejecutar chown si uid/gid son válidos (no None)
+    if uid is not None and gid is not None:
+        for root, dirs, files in os.walk(path):
+            for momo in dirs:
+                os.chown(os.path.join(root, momo), uid, gid)
+            for momo in files:
+                os.chown(os.path.join(root, momo), uid, gid)
+        os.chown(path, uid, gid)
 
 
 def repo_clone(repo_url, destino):
