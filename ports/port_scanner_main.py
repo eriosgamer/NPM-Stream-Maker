@@ -34,11 +34,18 @@ def gen_ports_file():
     repo_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AMPTemplates")
 
     # Clone and process AMPTemplates repository
+    ws_info("[PORT_SCANNER]", "[bold blue]Cloning AMPTemplates repository...")
     git_utils.repo_clone(repo_url, repo_dir)
+    ws_info(
+        "[PORT_SCANNER]", "[bold green]AMPTemplates repository cloned successfully."
+    )
 
     all_ports = defaultdict(set)  # Dictionary to store all found ports
 
     # Collect all files to process from the cloned repository
+    ws_info(
+        "[PORT_SCANNER]", "[bold blue]Collecting files from AMPTemplates repository..."
+    )
     files = []
     for root, _, filelist in os.walk(repo_dir):
         for fname in filelist:
@@ -96,14 +103,6 @@ def gen_ports_file():
     ranges = pfr.group_ranges(unique_ports)
     alt_ranges = pfr.group_ranges(unique_alternative_ports)
     console.rule("[bold green]Ports detected in all files (OPNsense range format)")
-    opnsense_list = ",".join(
-        (
-            f"{str(start).replace(' ', '')}:{str(end).replace(' ', '')}"
-            if start != end
-            else f"{str(start).replace(' ', '')}"
-        )
-        for start, end in ranges
-    )
     opnsense_alt_list = ",".join(
         (
             f"{str(start).replace(' ', '')}:{str(end).replace(' ', '')}"
@@ -150,7 +149,9 @@ def gen_ports_file():
         ws_info("[PORT_SCANNER]", f"ports.txt file generated successfully!")
         ws_info("[PORT_SCANNER]", f"Generated on: {metadata['generated_date']}")
         ws_info("[PORT_SCANNER]", f"File size: {file_size} bytes")
-        ws_info("[PORT_SCANNER]", f"Total unique ports: {len(unique_alternative_ports)}")
+        ws_info(
+            "[PORT_SCANNER]", f"Total unique ports: {len(unique_alternative_ports)}"
+        )
         ws_info("[PORT_SCANNER]", f"Port ranges: {len(alt_ranges)}")
         ws_info("[PORT_SCANNER]", f"AMP templates processed: {total_files}")
         ws_info("[PORT_SCANNER]", f"Steam/game ports included: {len(steam_ports)}")
@@ -158,11 +159,16 @@ def gen_ports_file():
         try:
             with open("ports.txt", "r") as f:
                 content_preview = f.read(200)  # First 200 chars
-            ws_info("[PORT_SCANNER]", f"[bold yellow]Content preview: {content_preview}...")
+            ws_info(
+                "[PORT_SCANNER]", f"[bold yellow]Content preview: {content_preview}..."
+            )
         except Exception as e:
             ws_error("[PORT_SCANNER]", f"Error al leer preview de ports.txt: {e}")
     else:
-        ws_error("[PORT_SCANNER]", "ports.txt no existe tras la generación. Verifica permisos y ruta.")
+        ws_error(
+            "[PORT_SCANNER]",
+            "ports.txt no existe tras la generación. Verifica permisos y ruta.",
+        )
 
     # Delete the cloned repository to clean up
     try:
