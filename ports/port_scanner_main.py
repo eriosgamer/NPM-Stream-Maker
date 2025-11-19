@@ -179,8 +179,16 @@ def gen_ports_file():
         )
 
     # Delete the cloned repository to clean up
+    import stat
+    def on_rm_error(func, path, exc_info):
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        except Exception as e:
+            ws_error("[PORT_SCANNER]", f"No se pudo eliminar {path}: {e}")
+
     try:
-        shutil.rmtree(repo_dir)
+        shutil.rmtree(repo_dir, onerror=on_rm_error)
         ws_info("[PORT_SCANNER]", f"[bold red]AMPTemplates repository deleted.")
     except Exception as e:
         ws_error(
