@@ -33,6 +33,14 @@ def gen_ports_file():
     # Directory where the repository will be cloned
     repo_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "AMPTemplates")
 
+    # Eliminar AMPTemplates si ya existe antes de clonar
+    if os.path.exists(repo_dir):
+        try:
+            shutil.rmtree(repo_dir)
+            ws_info("[PORT_SCANNER]", "Directorio AMPTemplates eliminado antes de clonar.")
+        except Exception as e:
+            ws_error("[PORT_SCANNER]", f"No se pudo eliminar AMPTemplates antes de clonar: {e}")
+            return
     # Clone and process AMPTemplates repository
     ws_info("[PORT_SCANNER]", "[bold blue]Cloning AMPTemplates repository...")
     git_utils.repo_clone(repo_url, repo_dir)
