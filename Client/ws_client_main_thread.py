@@ -239,17 +239,8 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "hostname": hostname,
                         "ports": port_list,
                     }
-                    ws_info("[DEBUG]",f"Sended message to server: {data}")
+                    ws_info("[DEBUG]",f"Sent message to server: {data}")
                     await websocket.send(json.dumps(data))
-                    sent_ports.update(current_port_set)
-                    for port, proto in current_port_set:
-                        port_last_seen[(port, proto)] = time.time()
-                    ws_success(
-                        "WS_CLIENT",
-                        f"Sent {len(current_port_set)} ports to server after reconnection",
-                    )
-                    print(f"Waiting for approval response from server...")
-
                     # Esperar respuesta del servidor de resolución
                     try:
                         response_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
@@ -288,6 +279,13 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                             ws_error("WS_CLIENT", f"Unexpected response from conflict resolution server: {response}")
                     except Exception as e:
                         ws_error("WS_CLIENT", f"Error waiting for approval response: {e}")
+                    sent_ports.update(current_port_set)
+                    for port, proto in current_port_set:
+                        port_last_seen[(port, proto)] = time.time()
+                    ws_success(
+                        "WS_CLIENT",
+                        f"Sent {len(current_port_set)} ports to server after reconnection",
+                    )
                 else:
                     ws_warning("WS_CLIENT", "No ports to send after reconnection")
 
