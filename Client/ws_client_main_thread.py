@@ -195,7 +195,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         response = json.loads(response_msg)
                         ws_info("[Debug] ", f"Respuesta recibida: {response}")
                         if response.get("type") == "client_port_conflict_resolution_response":
-                            approved_ports = response.get("resultados", [])
+                            approved_ports = response.get("ports", [])
                             ws_info("WS_CLIENT", f"Recibidos {len(approved_ports)} puertos aprobados")
                             wg_data = {
                                 "type": "conflict_resolution_ports",

@@ -424,9 +424,10 @@ async def handle_server_message(data, websocket=None):
 
             # Send successful response
             result = {
+                "type": "pre_approved_ports",
                 "status": "ok",
                 "msg": f"WG Streams synchronized for {ip}. {len(new_entries_to_add)} pre-approved entries processed.",
-                "resultados": result_ports,
+                "ports": result_ports,
             }
             if websocket is not None:
                 await websocket.send(json.dumps(result))
