@@ -434,6 +434,7 @@ async def handle_server_message(data, websocket=None):
 
 # Función utilitaria para crear el stream usando la lógica de stream_creation_db.py
 async def create_stream_from_remote(stream_data):
+    ws_info("[REMOTE]", f"create_stream_from_remote called with data: {stream_data}")
     """
     Crea un stream en la base de datos usando la lógica del cliente y sincroniza con otros servidores si corresponde.
     """
@@ -461,6 +462,8 @@ async def create_stream_from_remote(stream_data):
         new_entries.append((incoming_port, "tcp", forwarding_host, forwarding_port))
     if udp_forwarding:
         new_entries.append((incoming_port, "udp", forwarding_host, forwarding_port))
+
+    ws_info("[REMOTE]", f"Creating stream(s) with data: {new_entries}")
 
     # Llama a la función de creación extendida (sincroniza con la DB local)
     stream_creation.add_streams_sqlite_with_ip_extended(new_entries)
@@ -528,7 +531,5 @@ async def create_stream_from_remote(stream_data):
             except Exception as e:
                 ws_error("[WS_REMOTE]", f"Error sending to WG {wg_uri}: {e}")
 
-    # No se retorna un stream_id específico porque la función de creación múltiple no lo devuelve
-    return True
     # No se retorna un stream_id específico porque la función de creación múltiple no lo devuelve
     return True

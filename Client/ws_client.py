@@ -21,7 +21,7 @@ console = Console()
 
 # This file manages the startup and main loop of the WebSocket client,
 # including configuration validation, connection testing, and port assignment management.
-
+client_assignments = {}
 
 def start_ws_client():
     """

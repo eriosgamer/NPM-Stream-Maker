@@ -318,7 +318,7 @@ def delete_specific_stream(id):
     try:
         ws_info("[STREAM_CLEANING]", f"Deleting stream with ID: {id}")
         db_handler.delete_stream(id)
-        conf_file = os.path.join(cfg.NGINX_STREAM_DIR, f"stream_{id}.conf")
+        conf_file = os.path.join(cfg.NGINX_STREAM_DIR, f"{id}.conf")
         if os.path.exists(conf_file):
             os.remove(conf_file)
             ws_info("[STREAM_CLEANING]", f"Removed configuration file: {conf_file}")

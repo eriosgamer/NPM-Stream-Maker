@@ -141,11 +141,48 @@ def add_stream_form():
             "udp_forwarding": int(udp),
         }
         ws_info("[ADD_STREAM]", f"Creando stream: {stream_data}")
-        asyncio.run(create_stream_from_remote(stream_data))
-        ws_info("[ADD_STREAM]", "Stream creado y sincronizado correctamente.")
+        result = asyncio.run(create_stream_from_remote(stream_data))
+        if result:
+            ws_info("[ADD_STREAM]", "Stream creado y sincronizado correctamente.")
+            return True
+        else:
+            ws_error("[ADD_STREAM]", "Error al crear el stream.")
+            return False
     except Exception as e:
         ws_error("[ADD_STREAM]", f"Error al crear el stream: {e}")
+        return False
 
+
+def create_stream_from_remote_message(stream_data):
+    ws_info("[ADD_STREAM]", "Creando stream con datos remotos...")
+    try:
+        stream_data = {
+            "incoming_port": stream_data["incoming_port"],
+            "forwarding_host": stream_data["forwarding_host"],
+            "forwarding_port": stream_data["forwarding_port"],
+            "tcp_forwarding": stream_data["tcp_forwarding"],
+            "udp_forwarding": stream_data["udp_forwarding"],
+        }
+        ws_info("[ADD_STREAM]", f"Creando stream: {stream_data}")
+        result = asyncio.run(create_stream_from_remote(stream_data))
+        if result:
+            ws_info("[ADD_STREAM]", "Stream creado y sincronizado correctamente.")
+            return True
+        else:
+            ws_error("[ADD_STREAM]", "Error al crear el stream.")
+            return False
+    except Exception as e:
+        ws_error("[ADD_STREAM]", f"Error al crear el stream: {e}")
+        return False
+
+def remove_stream_from_remote(stream_id):
+    ws_info("[REMOVE_STREAM]", f"Eliminando stream con ID {stream_id}...")
+    try:
+        delete_specific_stream(stream_id)
+        ws_info("[REMOVE_STREAM]", f"Stream con ID {stream_id} eliminado correctamente.")
+    except Exception as e:
+        ws_error("[REMOVE_STREAM]", f"Error al eliminar el stream: {e}")
+    
 
 def remove_stream_form():
     clear_console()
