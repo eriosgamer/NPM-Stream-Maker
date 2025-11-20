@@ -254,7 +254,8 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                     try:
                         response_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
                         response = json.loads(response_msg)
-                        print(f"Received response from server: {response}")
+                        ws_info("[DEBUG]",f"Received response from server: {response}")
+
                         if response.get("type") == "client_port_conflict_resolution_response":
                             approved_ports = response.get("resultados", [])
                             ws_info("WS_CLIENT", f"Received {len(approved_ports)} approved ports from conflict resolution server")
