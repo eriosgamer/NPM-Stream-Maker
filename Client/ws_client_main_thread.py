@@ -247,6 +247,27 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "WS_CLIENT",
                         f"Sent {len(current_port_set)} ports to server after reconnection",
                     )
+
+                    # Esperar respuesta del servidor de resolución
+                    try:
+                        response_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
+                        response = json.loads(response_msg)
+                        if response.get("type") == "client_port_assignments_response":
+                            approved_ports = response.get("assignments", [])
+                            ws_info("WS_CLIENT", f"Received {len(approved_ports)} approved ports from conflict resolution server")
+                            # Enviar puertos aprobados al WireGuard
+                            wg_data = {
+                                "type": "conflict_resolution_ports",
+                                "token": server_token,
+                                "ip": local_ip,
+                                "hostname": hostname,
+                                "ports": approved_ports,
+                                "ports_pre_approved": True,
+                            }
+                            await websocket.send(json.dumps(wg_data))
+                            ws_success("WS_CLIENT", f"Sent {len(approved_ports)} approved ports to WireGuard server")
+                    except Exception as e:
+                        ws_error("WS_CLIENT", f"Error waiting for approval response: {e}")
                 else:
                     ws_warning("WS_CLIENT", "No ports to send after reconnection")
 
