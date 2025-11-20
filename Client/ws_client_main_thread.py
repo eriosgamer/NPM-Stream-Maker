@@ -239,7 +239,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "hostname": hostname,
                         "ports": port_list,
                     }
-                    ws_info("[DEBUG]",f"Sent message to server: {data}")
+                    ws_info("[DEBUG]",f"Sent message to server: {data} and token: {server_token}")
                     await websocket.send(json.dumps(data))
                     # Esperar respuesta del servidor de resolución
                     try:
@@ -259,6 +259,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                 "ports": approved_ports,
                                 "ports_pre_approved": True,
                             }
+                            print(server_token)
                             print(f"Sending approved ports to WireGuard: {wg_data}")
                             ws_info("WS_CLIENT", f"Enviando puertos aprobados al WireGuard con token: {server_token}")
                             await websocket.send(json.dumps(wg_data))
