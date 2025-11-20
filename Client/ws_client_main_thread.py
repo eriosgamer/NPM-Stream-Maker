@@ -174,13 +174,64 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                 # Procesar puertos remotos pendientes ANTES de cada ciclo de envío de puertos
                 forwarding_info = process_pending_remote_ports()
 
-                # --- CICLO REFORZADO: Envío según tipo de servidor ---
-                if server_caps.get("conflict_resolution", False):
+                # --- FORCE IMMEDIATE PORT SEND AFTER CONNECTION ---
+                allowed_ports = pfr.load_ports("ports.txt")
+                # DEBUG: Print ports.txt content on Windows
+                if os.name == "nt":
+                    console = Console()
+                    try:
+                        with open("ports.txt", "r") as f:
+                            ports_txt_content = f.read()
+                        ws_info("[WS_CLIENT]", "Contents of ports.txt:")
+                        ws_info("[WS_CLIENT]", ports_txt_content)
+                    except Exception as e:
+                        ws_error("[WS_CLIENT]", f"Error reading ports.txt: {e}")
+                        
+                # DEBUG: Print parsed ports by client on Windows
+                if os.name == "nt":
+                    ws_info("[WS_CLIENT]", "Ports parsed by the client:")
+                    for port, proto in current_ports:
+                        ws_info("[WS_CLIENT]", f"{port} / {proto}")
+
+                # Reinforcement: filter and validate ports correctly (strict on both systems)
+                allowed_and_listening = []
+                for port, proto in current_ports:
+                    try:
+                        port_int = int(port)
+                    except Exception:
+                        continue
+                    if port_int in allowed_ports:
+                        allowed_and_listening.append((port_int, proto))
+                current_port_set = set(allowed_and_listening)
+                # Warning log if the number of ports is suspiciously low
+                if len(current_port_set) < 3:
+                    ws_warning(
+                        "WS_CLIENT",
+                        f"⚠️ Few valid ports detected ({len(current_port_set)}). There may be a permissions or configuration issue.",
+                    )
+
+                if current_port_set:
                     port_list = [
                         {"port": port, "protocol": proto}
                         for port, proto in current_port_set
                     ]
-                    ws_info("[Debug] ", f"Enviando puertos a servidor de resolución: {server_uri}")
+                    table = Table(
+                        title="Ports sent to server (reconnection)",
+                        box=box.SIMPLE,
+                        show_lines=True,
+                    )
+                    table.add_column("Port", style="magenta", justify="right")
+                    table.add_column("Protocol", style="cyan", justify="center")
+                    for p in port_list:
+                        table.add_row(str(p["port"]), p["protocol"].upper())
+                    console = Console()
+                    console.print(
+                        Panel(
+                            table,
+                            title="[bold green]WS_CLIENT[/bold green]",
+                            expand=False,
+                        )
+                    )
                     data = {
                         "type": "conflict_resolution_ports",
                         "token": server_token,
@@ -188,15 +239,26 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "hostname": hostname,
                         "ports": port_list,
                     }
+                    print(f"Sending reconnection ports data: {data}")
                     await websocket.send(json.dumps(data))
-                    ws_info("[Debug] ", "Esperando respuesta de aprobación...")
+                    sent_ports.update(current_port_set)
+                    for port, proto in current_port_set:
+                        port_last_seen[(port, proto)] = time.time()
+                    ws_success(
+                        "WS_CLIENT",
+                        f"Sent {len(current_port_set)} ports to server after reconnection",
+                    )
+                    print(f"Waiting for approval response from server...")
+
+                    # Esperar respuesta del servidor de resolución
                     try:
                         response_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
                         response = json.loads(response_msg)
-                        ws_info("[Debug] ", f"Respuesta recibida: {response}")
+                        print(f"Received response from server: {response}")
                         if response.get("type") == "client_port_conflict_resolution_response":
-                            approved_ports = response.get("ports", [])
-                            ws_info("WS_CLIENT", f"Recibidos {len(approved_ports)} puertos aprobados")
+                            approved_ports = response.get("resultados", [])
+                            ws_info("WS_CLIENT", f"Received {len(approved_ports)} approved ports from conflict resolution server")
+                            # Enviar puertos aprobados al WireGuard
                             wg_data = {
                                 "type": "conflict_resolution_ports",
                                 "token": server_token,
@@ -205,48 +267,77 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                 "ports": approved_ports,
                                 "ports_pre_approved": True,
                             }
-                            ws_info("[Debug] ", f"Enviando puertos aprobados al WireGuard: {wg_data}")
+                            print(f"Sending approved ports to WireGuard: {wg_data}")
+                            ws_info("WS_CLIENT", f"Enviando puertos aprobados al WireGuard con token: {server_token}")
                             await websocket.send(json.dumps(wg_data))
+                            # Esperar confirmación del servidor WireGuard
                             try:
                                 wg_response_msg = await asyncio.wait_for(websocket.recv(), timeout=15)
-                                ws_info("WS_CLIENT", f"Respuesta de WireGuard: {wg_response_msg}")
+                                ws_info("WS_CLIENT", f"Respuesta recibida de WireGuard: {wg_response_msg}")
                                 wg_response = json.loads(wg_response_msg)
                                 if wg_response.get("status") == "ok":
-                                    ws_success("WS_CLIENT", f"WireGuard procesó {len(approved_ports)} puertos correctamente")
+                                    ws_success("WS_CLIENT", f"WireGuard server processed {len(approved_ports)} ports successfully")
+                                    # Solo aquí marcar como procesados
+                                    sent_ports.update(current_port_set)
                                 else:
-                                    ws_error("WS_CLIENT", f"WireGuard no confirmó procesamiento: {wg_response}")
+                                    ws_error("WS_CLIENT", f"WireGuard server did not confirm port processing: {wg_response}")
                             except Exception as e:
-                                ws_error("WS_CLIENT", f"Sin confirmación de WireGuard: {e}")
+                                ws_error("WS_CLIENT", f"No confirmation from WireGuard server: {e}")
                         else:
-                            ws_error("WS_CLIENT", f"Respuesta inesperada del servidor de resolución: {response}")
+                            ws_error("WS_CLIENT", f"Unexpected response from conflict resolution server: {response}")
                     except Exception as e:
-                        ws_error("WS_CLIENT", f"Error esperando aprobación: {e}")
-                elif server_caps.get("has_wireguard", False):
-                    ws_info("[Debug] ", f"Servidor {server_uri} es WireGuard, esperando puertos pre-aprobados")
-                    while True:
-                        try:
-                            ws_info("[Debug] ", "Esperando puertos pre-aprobados de WireGuard...")
-                            pre_approved_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
-                            pre_approved_data = json.loads(pre_approved_msg)
-                            if pre_approved_data.get("type") == "pre_approved_ports":
-                                pre_approved_ports = pre_approved_data.get("ports", [])
-                                ws_info("WS_CLIENT", f"Recibidos {len(pre_approved_ports)} puertos pre-aprobados de WireGuard")
-                                for port_info in pre_approved_ports:
-                                    port = port_info.get("port")
-                                    proto = port_info.get("protocol")
-                                    if port is not None and proto is not None:
-                                        current_port_set.add((port, proto))
-                                ws_success("WS_CLIENT", "Procesados puertos pre-aprobados de WireGuard")
-                            else:
-                                ws_error("WS_CLIENT", f"Tipo de mensaje inesperado de WireGuard: {pre_approved_data.get('type')}")
-                        except asyncio.TimeoutError:
-                            ws_warning("WS_CLIENT", "Timeout esperando puertos pre-aprobados de WireGuard")
-                            break
-                        except Exception as e:
-                            ws_error("WS_CLIENT", f"Error procesando puertos pre-aprobados de WireGuard: {e}")
-                            break
+                        ws_error("WS_CLIENT", f"Error waiting for approval response: {e}")
                 else:
-                    ws_warning("WS_CLIENT", f"Servidor {server_uri} no soporta resolución de conflictos ni WireGuard. No se envían puertos.")
+                    ws_warning("WS_CLIENT", "No ports to send after reconnection")
+
+                force_resend = False  # Resend already forced after reconnection
+
+                while True:
+                    # Procesar y sincronizar puertos remotos en cada ciclo
+                    forwarding_info = process_pending_remote_ports()
+                    allowed_ports = pfr.load_ports("ports.txt")
+                    # --- Port logic ---
+                    # Check if ports.txt needs to be regenerated (missing, empty, or older than 24 hours)
+                    needs_regeneration = (
+                        not allowed_ports  # No ports loaded (file missing or empty)
+                        or psu.should_regenerate_ports_file()  # File older than 24 hours
+                    )
+
+                    if needs_regeneration:
+                        if not allowed_ports:
+                            ws_warning(
+                                "WS_CLIENT",
+                                "No allowed ports configured, scanning...",
+                            )
+                        else:
+                            ws_warning(
+                                "WS_CLIENT",
+                                "ports.txt needs regeneration, rescanning...",
+                            )
+                        gen_ports_file()
+                        allowed_ports = pfr.load_ports("ports.txt")
+                        if not allowed_ports:
+                            ws_error(
+                                "WS_CLIENT",
+                                "No ports found after regeneration, aborting",
+                            )
+                            return
+                        ws_success(
+                            "WS_CLIENT",
+                            f"Loaded {len(allowed_ports)} ports after regeneration",
+                        )
+                    else:
+                        ws_info(
+                            "WS_CLIENT",
+                            f"Using existing ports.txt with {len(allowed_ports)} ports",
+                        )
+
+                    current_ports = ps.get_listening_ports_with_proto()
+                    allowed_and_listening = [
+                        (port, proto)
+                        for port, proto in current_ports
+                        if port in allowed_ports
+                    ]
                     current_port_set = set(allowed_and_listening)
 
                     # --- INCLUIR PUERTOS REMOTOS MANUALES EN EL ENVÍO ---
