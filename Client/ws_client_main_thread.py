@@ -265,7 +265,20 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                 "ports_pre_approved": True,
                             }
                             await websocket.send(json.dumps(wg_data))
-                            ws_success("WS_CLIENT", f"Sent {len(approved_ports)} approved ports to WireGuard server")
+                            # Esperar confirmación del servidor WireGuard
+                            try:
+                                wg_response_msg = await asyncio.wait_for(websocket.recv(), timeout=15)
+                                wg_response = json.loads(wg_response_msg)
+                                if wg_response.get("status") == "ok":
+                                    ws_success("WS_CLIENT", f"WireGuard server processed {len(approved_ports)} ports successfully")
+                                    # Solo aquí marcar como procesados
+                                    sent_ports.update(current_port_set)
+                                else:
+                                    ws_error("WS_CLIENT", f"WireGuard server did not confirm port processing: {wg_response}")
+                            except Exception as e:
+                                ws_error("WS_CLIENT", f"No confirmation from WireGuard server: {e}")
+                        else:
+                            ws_error("WS_CLIENT", f"Unexpected response from conflict resolution server: {response}")
                     except Exception as e:
                         ws_error("WS_CLIENT", f"Error waiting for approval response: {e}")
                 else:
