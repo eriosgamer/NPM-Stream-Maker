@@ -264,10 +264,12 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                 "ports": approved_ports,
                                 "ports_pre_approved": True,
                             }
+                            ws_info("WS_CLIENT", f"Enviando puertos aprobados al WireGuard con token: {server_token}")
                             await websocket.send(json.dumps(wg_data))
                             # Esperar confirmación del servidor WireGuard
                             try:
                                 wg_response_msg = await asyncio.wait_for(websocket.recv(), timeout=15)
+                                ws_info("WS_CLIENT", f"Respuesta recibida de WireGuard: {wg_response_msg}")
                                 wg_response = json.loads(wg_response_msg)
                                 if wg_response.get("status") == "ok":
                                     ws_success("WS_CLIENT", f"WireGuard server processed {len(approved_ports)} ports successfully")
