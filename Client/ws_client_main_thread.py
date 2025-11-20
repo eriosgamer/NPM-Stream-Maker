@@ -239,7 +239,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "hostname": hostname,
                         "ports": port_list,
                     }
-                    print(f"Sending reconnection ports data: {data}")
+                    ws_info("[DEBUG]",f"Sended message to server: {data}")
                     await websocket.send(json.dumps(data))
                     sent_ports.update(current_port_set)
                     for port, proto in current_port_set:
