@@ -239,7 +239,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "hostname": hostname,
                         "ports": port_list,
                     }
-                    print(f"Sending reconnection ports data: {data}")
+                    ws_info("[Debug] ",f"Sending reconnection ports data: {data}")
                     await websocket.send(json.dumps(data))
                     sent_ports.update(current_port_set)
                     for port, proto in current_port_set:
@@ -248,13 +248,13 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "WS_CLIENT",
                         f"Sent {len(current_port_set)} ports to server after reconnection",
                     )
-                    print(f"Waiting for approval response from server...")
+                    ws_info("[Debug] ", "Waiting for approval response from server...")
 
                     # Esperar respuesta del servidor de resolución
                     try:
                         response_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
                         response = json.loads(response_msg)
-                        print(f"Received response from server: {response}")
+                        ws_info("[Debug] ", f"Received response from server: {response}")
                         if response.get("type") == "client_port_conflict_resolution_response":
                             approved_ports = response.get("resultados", [])
                             ws_info("WS_CLIENT", f"Received {len(approved_ports)} approved ports from conflict resolution server")
@@ -267,7 +267,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                 "ports": approved_ports,
                                 "ports_pre_approved": True,
                             }
-                            print(f"Sending approved ports to WireGuard: {wg_data}")
+                            ws_info("[Debug] ", f"Sending approved ports to WireGuard: {wg_data}")
                             ws_info("WS_CLIENT", f"Enviando puertos aprobados al WireGuard con token: {server_token}")
                             await websocket.send(json.dumps(wg_data))
                             # Esperar confirmación del servidor WireGuard
