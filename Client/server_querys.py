@@ -4,6 +4,7 @@ import websockets
 import json
 from rich.console import Console
 from UI.console_handler import ws_info, ws_error
+from WebSockets import diagnostics as diagnostics
 
 console = Console()
 
@@ -169,6 +170,61 @@ async def send_ports_to_conflict_resolution_server(
     except Exception as e:
         ws_error("[WS_CLIENT]", f"Error with conflict resolution server: {e}")
         return None
+
+
+async def send_pre_approved_ports_to_wireguard_servers(approved_ports, local_ip, hostname):
+    """
+    Sends approved ports to all configured WireGuard servers.
+    Uses diagnostics.get_ws_uris_and_tokens to get URIs/tokens, queries capabilities,
+    and sends the pre-approved payload to any server that reports as a WG server.
+    """
+    from WebSockets import diagnostics as diag
+
+    if not approved_ports:
+        ws_info("[WS_CLIENT]", "No approved ports to forward to WireGuard servers")
+        return []
+
+    uri_token_pairs = diag.get_ws_uris_and_tokens()
+    successes = []
+    for uri, token in uri_token_pairs:
+        try:
+            caps = await query_server_capabilities(uri, token)
+            if not caps:
+                continue
+            if not caps.get("has_wireguard", False):
+                continue
+
+            ws_info("[WS_CLIENT]", f"Forwarding pre-approved ports to WG server: {uri}")
+            async with websockets.connect(uri, ping_timeout=60, ping_interval=120, close_timeout=20) as websocket:
+                # Send token for auth
+                await websocket.send(json.dumps({"token": token}))
+                token_response = await asyncio.wait_for(websocket.recv(), timeout=10)
+                token_result = json.loads(token_response)
+                if token_result.get("status") != "ok":
+                    ws_error("[WS_CLIENT]", f"Token validation failed for {uri}")
+                    continue
+
+                wg_data = {
+                    "type": "conflict_resolution_ports",
+                    "token": token,
+                    "ip": local_ip,
+                    "hostname": hostname,
+                    "ports": approved_ports,
+                    "ports_pre_approved": True,
+                }
+                await websocket.send(json.dumps(wg_data))
+                resp = await asyncio.wait_for(websocket.recv(), timeout=15)
+                r = json.loads(resp)
+                if r.get("status") == "ok":
+                    successes.append(uri)
+                    ws_info("[WS_CLIENT]", f"WG server {uri} processed approved ports")
+                else:
+                    ws_error("[WS_CLIENT]", f"WG server {uri} rejected approved ports: {r}")
+        except Exception as e:
+            ws_error("[WS_CLIENT]", f"Error sending to WG server {uri}: {e}")
+            continue
+
+    return successes
 
 
 # --- Module summary ---

@@ -239,7 +239,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "hostname": hostname,
                         "ports": port_list,
                     }
-                    ws_info("[DEBUG]",f"Sent message to server: {data} and token: {server_token}")
+                    ws_info("[DEBUG]",f"Sent message to server: {data}")
                     await websocket.send(json.dumps(data))
                     # Esperar respuesta del servidor de resolución
                     try:
@@ -250,19 +250,12 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         if response.get("type") == "client_port_conflict_resolution_response":
                             approved_ports = response.get("resultados", [])
                             ws_info("WS_CLIENT", f"Received {len(approved_ports)} approved ports from conflict resolution server")
-                            # Enviar puertos aprobados al WireGuard
-                            wg_data = {
-                                "type": "conflict_resolution_ports",
-                                "token": server_token,
-                                "ip": local_ip,
-                                "hostname": hostname,
-                                "ports": approved_ports,
-                                "ports_pre_approved": True,
-                            }
-                            print(server_token)
-                            print(f"Sending approved ports to WireGuard: {wg_data}")
-                            ws_info("WS_CLIENT", f"Enviando puertos aprobados al WireGuard con token: {server_token}")
-                            await websocket.send(json.dumps(wg_data))
+                            # Enviar puertos aprobados a todos los servidores WireGuard configurados
+                            from Client import server_querys as sq
+                            wg_successes = await sq.send_pre_approved_ports_to_wireguard_servers(
+                                approved_ports, local_ip, hostname
+                            )
+                            ws_info("WS_CLIENT", f"Forwarded approved ports to {len(wg_successes)} WireGuard servers")
                             # Esperar confirmación del servidor WireGuard
                             try:
                                 wg_response_msg = await asyncio.wait_for(websocket.recv(), timeout=15)
@@ -354,10 +347,17 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         new_ports = current_port_set - sent_ports
 
                     if new_ports:
-                        port_list = [
-                            {"port": port, "protocol": proto}
-                            for port, proto in new_ports
-                        ]
+                        # Only send these ports to conflict resolution servers
+                        if not server_caps.get("conflict_resolution", False):
+                            ws_info(
+                                "[WS_CLIENT]",
+                                f"Server {server_uri} is not a conflict resolution server; skipping sending unapproved ports",
+                            )
+                        else:
+                            port_list = [
+                                {"port": port, "protocol": proto}
+                                for port, proto in new_ports
+                            ]
                         # Añadir detalles de forwarding_info si existen (para puertos remotos manuales)
                         for idx, entry in enumerate(port_list):
                             key = (entry["port"], entry["protocol"])
@@ -373,15 +373,14 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         table.add_column("Protocol", style="cyan", justify="center")
                         for p in port_list:
                             table.add_row(str(p["port"]), p["protocol"].upper())
-                        console = Console()
-                        console.print(
-                            Panel(
-                                table,
-                                title="[bold green]WS_CLIENT[/bold green]",
-                                expand=False,
+                            console = Console()
+                            console.print(
+                                Panel(
+                                    table,
+                                    title="[bold green]WS_CLIENT[/bold green]",
+                                    expand=False,
+                                )
                             )
-                        )
-
                         data = {
                             "type": "conflict_resolution_ports",
                             "token": server_token,
