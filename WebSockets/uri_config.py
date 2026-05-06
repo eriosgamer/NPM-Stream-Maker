@@ -65,10 +65,10 @@ def has_uri_config_changed():
     uri_token_pairs = diagnostics.get_ws_uris_and_tokens()
     current_config = json.dumps(uri_token_pairs, sort_keys=True)
 
-    # Calculate current hash using MD5
+    # Calculate current hash using SHA-256
     import hashlib
 
-    current_hash = hashlib.md5(current_config.encode()).hexdigest()
+    current_hash = hashlib.sha256(current_config.encode()).hexdigest()
 
     # Check against saved hash from previous run
     if os.path.exists(config_hash_file):
@@ -116,7 +116,7 @@ def save_last_uri_config():
         uri_token_pairs = diagnostics.get_ws_uris_and_tokens()
         current_config = json.dumps(uri_token_pairs, sort_keys=True)
 
-        # Calculate and save hash using MD5
+        # Calculate and save hash using SHA-256
         import hashlib
 
         current_hash = hashlib.md5(current_config.encode()).hexdigest()

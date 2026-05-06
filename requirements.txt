@@ -1,4 +1,4 @@
 rich
 websockets
-python-dotenv
+python-dotenv>=1.2.2
 pygments>=2.20.0 # not directly required, pinned by Snyk to avoid a vulnerability

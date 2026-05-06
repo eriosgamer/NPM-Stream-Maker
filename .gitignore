@@ -11,3 +11,4 @@ __pycache__/
 *.pyc
 nginx/
 client_assignments.json
+AGENTS.md

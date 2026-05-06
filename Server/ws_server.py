@@ -233,10 +233,10 @@ async def main():
     try:
         ws_info("WS_SERVER", "Initializing WebSocket server...")
 
-        # Start the WebSocket server with compatible settings
+        # Start the WebSocket server with configurable host and settings
         server = await websockets.serve(
             ports_handler.handler,
-            "0.0.0.0",
+            cfg.WS_SERVER_HOST,
             cfg.WS_SERVER_PORT,
             ping_interval=60,
             ping_timeout=30,
@@ -253,9 +253,9 @@ async def main():
             hostname = socket.gethostname()
             local_ip = socket.gethostbyname(hostname)
             connection_info = {
-                "Local IP": f"ws://{local_ip}:{cfg.WS_SERVER_PORT}",
+                "Host": f"ws://{cfg.WS_SERVER_HOST}:{cfg.WS_SERVER_PORT}",
                 "Localhost": f"ws://localhost:{cfg.WS_SERVER_PORT}",
-                "Loopback": f"ws://127.0.0.1:{cfg.WS_SERVER_PORT}",
+                "All interfaces": f"ws://0.0.0.0:{cfg.WS_SERVER_PORT} (if WS_SERVER_HOST=0.0.0.0)",
             }
         except:
             connection_info = {"Localhost": f"ws://localhost:{cfg.WS_SERVER_PORT}"}

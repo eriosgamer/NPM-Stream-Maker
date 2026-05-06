@@ -71,6 +71,7 @@ WS_TOKEN = token_manager.load_ws_token()
 WS_SERVER_PORT = int(
     os.environ.get("WS_SERVER_PORT", 8765)
 )  # Default port 8765, configurable via environment
+WS_SERVER_HOST = os.environ.get("WS_SERVER_HOST", "127.0.0.1")  # Bind to localhost by default for security
 
 # File paths for port and client assignment tracking
 ASSIGNED_PORTS_FILE = "assigned_ports.json"
