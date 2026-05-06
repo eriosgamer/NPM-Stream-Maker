@@ -20,21 +20,41 @@ load_dotenv()
 
 # Delete the cloned repository to clean up
 import stat
-import shutil
+import platform
+import subprocess
+
 def make_writable_recursive(path):
     for root, dirs, files in os.walk(path, topdown=False):
         for name in files:
             fpath = os.path.join(root, name)
             try:
                 os.chmod(fpath, stat.S_IWRITE)
-            except Exception as e:
-                ws_error("[PORT_SCANNER]", f"No se pudo cambiar permisos de {name}: {e}")
+            except Exception:
+                pass
         for name in dirs:
             dpath = os.path.join(root, name)
             try:
                 os.chmod(dpath, stat.S_IWRITE)
-            except Exception as e:
-                ws_error("[PORT_SCANNER]", f"No se pudo cambiar permisos de carpeta {name}: {e}")
+            except Exception:
+                pass
+
+
+def safe_rmtree(path):
+    try:
+        shutil.rmtree(path)
+    except Exception as e:
+        try:
+            make_writable_recursive(path)
+            shutil.rmtree(path)
+        except Exception:
+            if platform.system() != "Windows":
+                try:
+                    subprocess.run(["rm", "-rf", path], check=True)
+                except Exception as e:
+                    ws_error("[PORT_SCANNER]", f"No se pudo eliminar {path} (requiere sudo): {e}")
+                    ws_warning("[PORT_SCANNER]", f"Elimina manualmente: sudo rm -rf {path}")
+            else:
+                ws_error("[PORT_SCANNER]", f"No se pudo eliminar {path}: {e}")
 
 
 def gen_ports_file():
@@ -54,8 +74,7 @@ def gen_ports_file():
     # Eliminar AMPTemplates si ya existe antes de clonar
     if os.path.exists(repo_dir):
         try:
-            make_writable_recursive(repo_dir)
-            shutil.rmtree(repo_dir)
+            safe_rmtree(repo_dir)
             ws_info("[PORT_SCANNER]", "Directorio AMPTemplates eliminado antes de clonar.")
         except Exception as e:
             ws_error("[PORT_SCANNER]", f"No se pudo eliminar AMPTemplates antes de clonar: {e}")
@@ -198,8 +217,7 @@ def gen_ports_file():
         )
 
     try:
-        make_writable_recursive(repo_dir)
-        shutil.rmtree(repo_dir)
+        safe_rmtree(repo_dir)
         ws_info("[PORT_SCANNER]", f"[bold red]AMPTemplates repository deleted.")
     except Exception as e:
         ws_error(
