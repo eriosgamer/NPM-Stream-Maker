@@ -202,6 +202,7 @@ The diagram shows the relationships and dependencies between all system modules,
 
 #### 1. WebSocket Server (`Server/ws_server.py`)
 - **Port**: Configurable (default: 8765, set via `--ws-server-port` or `WS_SERVER_PORT` environment variable)
+- **Host**: Configurable (default: 127.0.0.1 for security, set `WS_SERVER_HOST=0.0.0.0` to expose externally)
 - **Functions**: 
   - Receives port information from multiple clients
   - Manages automatic port conflict resolution
@@ -323,6 +324,7 @@ The application includes comprehensive error handling:
 - **`WS_TOKEN`**: WebSocket authentication token
 - **`WS_SERVER_TOKEN`**: WebSocket server token
 - **`WS_SERVER_PORT`**: WebSocket server port (default: 8765)
+- **`WS_SERVER_HOST`**: Server bind address (default: 127.0.0.1 for security, set to 0.0.0.0 to expose)
 - **`SKIP_NPM_CHECK`**: Skip NPM verification on startup
 - **`RUN_FROM_PANEL`**: Control panel execution indicator (automatically set when using `--ws-server-only`)
 
