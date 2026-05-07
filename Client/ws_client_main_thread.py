@@ -32,6 +32,24 @@ from Wireguard import wireguard_tools as wg_tools
 
 ping_interval = 90
 inactive_timeout = 600  # 10 minutes
+
+# FIX #1: Timeouts constants
+TOKEN_TIMEOUT = 10  # seconds
+RESPONSE_TIMEOUT = 30  # seconds
+WG_RESPONSE_TIMEOUT = 15  # seconds
+CAPABILITY_TIMEOUT = 15  # seconds
+
+# FIX #4: Exponential backoff settings
+INITIAL_RECONNECT_DELAY = 1  # seconds
+MAX_RECONNECT_DELAY = 60  # seconds
+RECONNECT_BACKOFF_MULTIPLIER = 2
+
+# FIX #3: Memory cleanup settings
+MAX_PORT_HISTORY_SIZE = 1000  # Max entries in sent_ports history
+MEMORY_CLEANUP_INTERVAL = 100  # Cleanup every N iterations
+
+# Global iteration counter for cleanup
+_iteration_counter = 0
 # -----------------------------------------------------------------------------
 # This module implements the main WebSocket client loop for the NPM Stream Maker.
 # It discovers available servers, establishes a persistent connection,
@@ -87,7 +105,32 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
         ws_error("WS_CLIENT", f"Could not get server capabilities for {server_uri}")
         return
 
+    # FIX #4: Exponential backoff variable
+    reconnect_delay = INITIAL_RECONNECT_DELAY
+
     while True:
+        # FIX #3: Periodic memory cleanup
+        global _iteration_counter
+        _iteration_counter += 1
+        if _iteration_counter >= MEMORY_CLEANUP_INTERVAL:
+            _iteration_counter = 0
+            # Clean old entries from sent_ports if too large
+            if len(sent_ports) > MAX_PORT_HISTORY_SIZE:
+                # Keep only the most recent half
+                ports_list = list(sent_ports)
+                sent_ports = set(ports_list[-MAX_PORT_HISTORY_SIZE // 2 :])
+            # Clean old entries from port_last_seen
+            current_time = time.time()
+            port_last_seen = {
+                k: v
+                for k, v in port_last_seen.items()
+                if current_time - v < 3600  # Keep only last hour
+            }
+            ws_info(
+                "[WS_CLIENT]",
+                f"Memory cleanup done. sent_ports: {len(sent_ports)}, port_last_seen: {len(port_last_seen)}",
+            )
+
         sent_ports = set()
         port_last_seen = {}
         force_resend = True
@@ -99,15 +142,35 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                 ping_timeout=30,
                 close_timeout=15,
             ) as websocket:
-                # Initial authentication
-                await websocket.send(json.dumps({"token": server_token}))
-                token_response = await asyncio.wait_for(websocket.recv(), timeout=10)
-                token_result = json.loads(token_response)
-                if token_result.get("status") != "ok":
-                    ws_error("WS_CLIENT", "Token rejected by server")
-                    await asyncio.sleep(10)
+                # FIX #2: Handle initial authentication with timeout
+                try:
+                    await websocket.send(json.dumps({"token": server_token}))
+                    token_response = await asyncio.wait_for(websocket.recv(), timeout=TOKEN_TIMEOUT)
+                    token_result = json.loads(token_response)
+                    if token_result.get("status") != "ok":
+                        ws_error("WS_CLIENT", "Token rejected by server")
+                        await asyncio.sleep(reconnect_delay)
+                        reconnect_delay = min(
+                            reconnect_delay * RECONNECT_BACKOFF_MULTIPLIER, MAX_RECONNECT_DELAY
+                        )
+                        continue
+                except asyncio.TimeoutError:
+                    ws_error("WS_CLIENT", f"Token response timeout after {TOKEN_TIMEOUT}s")
+                    await asyncio.sleep(reconnect_delay)
+                    reconnect_delay = min(
+                        reconnect_delay * RECONNECT_BACKOFF_MULTIPLIER, MAX_RECONNECT_DELAY
+                    )
+                    continue
+                except websockets.exceptions.ConnectionClosed as e:
+                    ws_error("WS_CLIENT", f"Connection closed during auth: {e}")
+                    await asyncio.sleep(reconnect_delay)
+                    reconnect_delay = min(
+                        reconnect_delay * RECONNECT_BACKOFF_MULTIPLIER, MAX_RECONNECT_DELAY
+                    )
                     continue
 
+                # Reset backoff on successful connection
+                reconnect_delay = INITIAL_RECONNECT_DELAY
                 ws_connection("WS_CLIENT", server_uri, "connected")
 
                 # Call the on_connect callback if provided
@@ -235,11 +298,23 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                     }
                     ws_info("[DEBUG]", f"Sent message to server: {data}")
                     await websocket.send(json.dumps(data))
-                    # Esperar respuesta del servidor de resolución
+                    # FIX #2: Wait for response with timeout and error handling
                     try:
-                        response_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
+                        response_msg = await asyncio.wait_for(
+                            websocket.recv(), timeout=RESPONSE_TIMEOUT
+                        )
                         response = json.loads(response_msg)
                         ws_info("[DEBUG]", f"Received response from server: {response}")
+
+                        # FIX #5: Validate server response
+                        if (
+                            response.get("status") != "ok"
+                            and "resultados" not in response
+                            and "type" not in response
+                        ):
+                            ws_error("WS_CLIENT", f"Invalid server response: {response}")
+                            await asyncio.sleep(reconnect_delay)
+                            continue
 
                         if response.get("type") == "client_port_conflict_resolution_response":
                             approved_ports = response.get("resultados", [])
@@ -257,10 +332,10 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                 "WS_CLIENT",
                                 f"Forwarded approved ports to {len(wg_successes)} WireGuard servers",
                             )
-                            # Esperar confirmación del servidor WireGuard
+                            # FIX #2: Wait for WireGuard confirmation with timeout
                             try:
                                 wg_response_msg = await asyncio.wait_for(
-                                    websocket.recv(), timeout=15
+                                    websocket.recv(), timeout=WG_RESPONSE_TIMEOUT
                                 )
                                 ws_info(
                                     "WS_CLIENT",
@@ -279,13 +354,29 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                         "WS_CLIENT",
                                         f"WireGuard server did not confirm port processing: {wg_response}",
                                     )
+                            except asyncio.TimeoutError:
+                                ws_warning(
+                                    "WS_CLIENT",
+                                    f"WireGuard response timeout after {WG_RESPONSE_TIMEOUT}s",
+                                )
+                            except websockets.exceptions.ConnectionClosed:
+                                ws_error(
+                                    "WS_CLIENT",
+                                    "Connection closed while waiting for WireGuard response",
+                                )
                             except Exception as e:
-                                ws_error("WS_CLIENT", f"No confirmation from WireGuard server: {e}")
+                                ws_error("WS_CLIENT", f"Error waiting for WireGuard response: {e}")
+                        elif response.get("type") == "error":
+                            ws_error("WS_CLIENT", f"Server returned error: {response.get('msg')}")
                         else:
                             ws_error(
                                 "WS_CLIENT",
                                 f"Unexpected response from conflict resolution server: {response}",
                             )
+                    except asyncio.TimeoutError:
+                        ws_error("WS_CLIENT", f"Server response timeout after {RESPONSE_TIMEOUT}s")
+                    except websockets.exceptions.ConnectionClosed:
+                        ws_error("WS_CLIENT", "Connection closed by server")
                     except Exception as e:
                         ws_error("WS_CLIENT", f"Error waiting for approval response: {e}")
                     sent_ports.update(current_port_set)
@@ -440,12 +531,20 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                     # Wait before next cycle
                     await asyncio.sleep(ping_interval)
 
-        except (websockets.ConnectionClosed, ConnectionRefusedError) as e:
-            ws_warning("WS_CLIENT", f"Connection lost: {e}. Reconnecting in 10 seconds")
-            await asyncio.sleep(10)
+        except (websockets.ConnectionClosed, ConnectionRefusedError, OSError) as e:
+            ws_warning(
+                "WS_CLIENT", f"Connection lost: {e}. Reconnecting in {reconnect_delay} seconds"
+            )
+            await asyncio.sleep(reconnect_delay)
+            reconnect_delay = min(
+                reconnect_delay * RECONNECT_BACKOFF_MULTIPLIER, MAX_RECONNECT_DELAY
+            )
         except Exception as e:
             ws_error("WS_CLIENT", f"Error in main loop: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(reconnect_delay)
+            reconnect_delay = min(
+                reconnect_delay * RECONNECT_BACKOFF_MULTIPLIER, MAX_RECONNECT_DELAY
+            )
 
 
 # -----------------------------------------------------------------------------

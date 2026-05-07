@@ -124,6 +124,7 @@ def reload_npm():
     """
     Reloads Nginx inside the Nginx Proxy Manager container using nginx -s reload.
     Only runs if Docker is available.
+    Returns True on success, False on failure.
     """
     # Asegura que la variable DOCKER_AVAILABLE esté correctamente definida
     try:
@@ -132,19 +133,19 @@ def reload_npm():
         check_docker_available()
     except Exception as e:
         ws_error("[NPM_CLEANER]", f"Error checking Docker availability: {e}")
+        return False
 
     docker_available = os.environ.get("DOCKER_AVAILABLE", "0") == "1"
     if not docker_available:
         ws_warning("[NPM_CLEANER]", "Docker not available - skipping NPM reload")
-        return
+        return False
 
     npm_container_name = None
     try:
         # Find the running NPM container ID or name
         result = subprocess.run(
             ["docker", "ps", "--format", "{{.ID}} {{.Image}} {{.Names}}"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
         for line in result.stdout.splitlines():
@@ -157,26 +158,27 @@ def reload_npm():
                 "[NPM_CLEANER]",
                 "Could not find a running Nginx Proxy Manager container to reload.",
             )
-            return
+            return False
         # Execute nginx -s reload inside the container
         exec_result = subprocess.run(
             ["docker", "exec", npm_container_name, "nginx", "-s", "reload"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
         )
         if exec_result.returncode == 0:
             ws_info("[NPM_CLEANER]", "Nginx reloaded successfully inside the NPM container.")
-        else:
-            ws_warning(
-                "[NPM_CLEANER]",
-                f"Warning reloading Nginx:\nSTDOUT:\n{exec_result.stdout}\nSTDERR:\n{exec_result.stderr}",
-            )
+            return True
+        ws_warning(
+            "[NPM_CLEANER]",
+            f"Warning reloading Nginx:\nSTDOUT:\n{exec_result.stdout}\nSTDERR:\n{exec_result.stderr}",
+        )
+        return False
     except Exception as e:
         ws_warning(
             "[NPM_CLEANER]",
             f"Warning reloading Nginx in NPM container (Docker may not be available): {e}",
         )
+        return False
 
 
 def restart_npm_for_fresh_start():

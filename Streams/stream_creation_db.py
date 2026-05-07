@@ -1,7 +1,10 @@
 import json
 import os
+import shutil
 import sqlite3
 import sys
+import tempfile
+import time
 
 from rich.console import Console
 
@@ -12,7 +15,7 @@ console = Console()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from npm.npm_handler import reload_npm
-from UI.console_handler import ws_info, ws_warning
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 
 # Main function to synchronize NGINX stream config files with the current SQLite database
@@ -20,6 +23,7 @@ def sync_streams_conf_with_sqlite():
     """
     Synchronizes NGINX stream configuration files with the current SQLite database.
     Generates .conf files for each active stream.
+    Uses atomic write with backup for safety.
     """
 
     # Reads active streams from the SQLite database and returns a list of dictionaries with stream data
@@ -154,30 +158,83 @@ def sync_streams_conf_with_sqlite():
     streams = read_streams_sqlite()
     # Ensure the NGINX stream config directory exists
     os.makedirs(cfg.NGINX_STREAM_DIR, exist_ok=True)
-    # Remove all existing .conf files in the NGINX stream config directory
-    for fname in os.listdir(cfg.NGINX_STREAM_DIR):
-        if fname.endswith(".conf"):
-            os.remove(os.path.join(cfg.NGINX_STREAM_DIR, fname))
-    # For each stream, generate and write its configuration file
+
+    # FIX #1: Backup existing configs before deleting
+    backup_dir = None
+    existing_conf_files = [f for f in os.listdir(cfg.NGINX_STREAM_DIR) if f.endswith(".conf")]
+    if existing_conf_files:
+        backup_dir = os.path.join(cfg.NGINX_STREAM_DIR, f".backup_{int(time.time())}")
+        os.makedirs(backup_dir, exist_ok=True)
+        for fname in existing_conf_files:
+            src = os.path.join(cfg.NGINX_STREAM_DIR, fname)
+            dst = os.path.join(backup_dir, fname)
+            shutil.copy2(src, dst)
+        ws_info("[STREAM_MANAGER]", f"Backup created at {backup_dir}")
+
+    # Temporary directory for atomic writes
+    temp_stream_dir = tempfile.mkdtemp(prefix="npm_streams_")
+    temp_stream_path = os.path.join(temp_stream_dir, "streams")
+    os.makedirs(temp_stream_path, exist_ok=True)
+
+    # For each stream, generate and write its configuration file to temp directory
     from rich.table import Table
 
     synced_files = []
+    write_errors = []
     for stream in streams:
-        # Si tienes una estructura auxiliar para allowed_ips/denied_ips por stream, pásala aquí:
-        # conf_content = generate_stream_conf_from_sqlite(stream, allowed_ips_override, denied_ips_override)
         conf_content = generate_stream_conf_from_sqlite(stream)
-        conf_filename = os.path.join(cfg.NGINX_STREAM_DIR, f"{stream['id']}.conf")
-        with open(conf_filename, "w") as f:
-            f.write(conf_content)
-        synced_files.append(
-            {
-                "id": stream["id"],
-                "port": stream["incoming_port"],
-                "tcp": "Yes" if stream["tcp_forwarding"] else "No",
-                "udp": "Yes" if stream["udp_forwarding"] else "No",
-                "destino": f"{stream['forwarding_host']}:{stream['forwarding_port']}",
-            }
-        )
+        conf_filename = os.path.join(temp_stream_path, f"{stream['id']}.conf")
+        try:
+            with open(conf_filename, "w") as f:
+                f.write(conf_content)
+            synced_files.append(
+                {
+                    "id": stream["id"],
+                    "port": stream["incoming_port"],
+                    "tcp": "Yes" if stream["tcp_forwarding"] else "No",
+                    "udp": "Yes" if stream["udp_forwarding"] else "No",
+                    "destino": f"{stream['forwarding_host']}:{stream['forwarding_port']}",
+                }
+            )
+        except Exception as e:
+            write_errors.append((stream["id"], str(e)))
+            ws_error("[STREAM_MANAGER]", f"Error writing config for stream {stream['id']}: {e}")
+
+    # FIX #3: Verify all writes succeeded before replacing
+    if write_errors:
+        ws_error("[STREAM_MANAGER]", f"Failed to write {len(write_errors)} configs, rolling back")
+        shutil.rmtree(temp_stream_dir, ignore_errors=True)
+        if backup_dir:
+            # Restore from backup
+            for fname in os.listdir(backup_dir):
+                src = os.path.join(backup_dir, fname)
+                dst = os.path.join(cfg.NGINX_STREAM_DIR, fname)
+                shutil.move(src, dst)
+            shutil.rmtree(backup_dir, ignore_errors=True)
+        return
+
+    # Atomic replace: remove old and move new
+    try:
+        for fname in existing_conf_files:
+            old_path = os.path.join(cfg.NGINX_STREAM_DIR, fname)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        for fname in os.listdir(temp_stream_path):
+            src = os.path.join(temp_stream_path, fname)
+            dst = os.path.join(cfg.NGINX_STREAM_DIR, fname)
+            shutil.move(src, dst)
+    except Exception as e:
+        ws_error("[STREAM_MANAGER]", f"Error replacing configs: {e}")
+        # Restore from backup
+        if backup_dir:
+            for fname in os.listdir(backup_dir):
+                src = os.path.join(backup_dir, fname)
+                dst = os.path.join(cfg.NGINX_STREAM_DIR, fname)
+                shutil.move(src, dst)
+    finally:
+        shutil.rmtree(temp_stream_dir, ignore_errors=True)
+        if backup_dir:
+            shutil.rmtree(backup_dir, ignore_errors=True)
     # Show summary with Rich Table
     if synced_files:
         table = Table(title="Synchronized Streams", show_lines=True)
@@ -203,5 +260,12 @@ def sync_streams_conf_with_sqlite():
     else:
         ws_warning("[STREAM_MANAGER]", "No active streams to synchronize.")
 
-    # Reload NGINX using the existing function from npm_handler
-    reload_npm()
+    # FIX #5: Verify NGINX reload succeeded
+    try:
+        reload_result = reload_npm()
+        if reload_result:
+            ws_info("[STREAM_MANAGER]", "NGINX reloaded successfully")
+        else:
+            ws_warning("[STREAM_MANAGER]", "NGINX reload may have failed, check logs")
+    except Exception as e:
+        ws_error("[STREAM_MANAGER]", f"Error reloading NGINX: {e}")

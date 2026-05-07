@@ -90,8 +90,16 @@ def add_streams_sqlite_with_ip_extended(new_entries):
 
     conn = sqlite3.connect(cfg.SQLITE_DB_PATH)
     summary_rows = []
+
+    # FIX #2: Enable atomic transactions with rollback
+    savepoint_name = f"stream_add_{int(time.time() * 1000)}"
+
     try:
         cur = conn.cursor()
+
+        # Create savepoint for atomic rollback
+        cur.execute(f"SAVEPOINT {savepoint_name}")
+
         # Check if the 'stream' table exists
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='stream';")
         if not cur.fetchone():
@@ -99,6 +107,8 @@ def add_streams_sqlite_with_ip_extended(new_entries):
                 "[WS]",
                 "The 'stream' table does not exist in the database. Cannot add streams.",
             )
+            cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+            conn.commit()
             return
 
         # Get the first user ID (usually admin)
@@ -261,9 +271,17 @@ def add_streams_sqlite_with_ip_extended(new_entries):
                 )
 
         conn.commit()
+        # Release savepoint on success
+        cur.execute(f"RELEASE SAVEPOINT {savepoint_name}")
 
     except Exception as e:
         ws_error("[STREAM_MANAGER]", f"Error adding streams: {e}")
+        try:
+            cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+            conn.commit()
+            ws_info("[STREAM_MANAGER]", "Rolled back transaction due to error")
+        except Exception as rollback_error:
+            ws_error("[STREAM_MANAGER]", f"Error during rollback: {rollback_error}")
     finally:
         if summary_rows:
             table = Table(title="Summary of Added Streams", show_lines=True)

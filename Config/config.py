@@ -89,6 +89,10 @@ port_conflict_resolutions = {}  # New: {(original_port, protocol, server_ip): al
 # Lock for synchronizing access to ws_ports.json
 ws_ports_lock = threading.Lock()
 
+# FIX #4: Add locks for race condition prevention
+stream_operation_lock = threading.Lock()
+conflict_resolution_lock = threading.Lock()
+
 # Server start time (used for uptime or logging)
 server_start_time = time.time()
 
