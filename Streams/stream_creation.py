@@ -22,15 +22,15 @@ console = Console()
 
 import json
 import os
-import sys
 import sqlite3
+import sys
 import time
 
 # Add parent directory to sys.path to import project modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
-from Wireguard import wireguard_tools as wg_tools
 from UI.console_handler import ws_error, ws_info, ws_warning
+from Wireguard import wireguard_tools as wg_tools
 
 
 def update_stream_forwarding_ip(port, new_ip):
@@ -43,9 +43,7 @@ def update_stream_forwarding_ip(port, new_ip):
     conn = sqlite3.connect(cfg.SQLITE_DB_PATH)
     try:
         cur = conn.cursor()
-        cur.execute(
-            "UPDATE stream SET forwarding_host=? WHERE incoming_port=?", (new_ip, port)
-        )
+        cur.execute("UPDATE stream SET forwarding_host=? WHERE incoming_port=?", (new_ip, port))
         conn.commit()
         return cur.rowcount > 0
     finally:
@@ -64,7 +62,7 @@ def remove_inactive_ports_from_streams():
     if not os.path.exists(cfg.WS_PORTS_FILE):
         return
     try:
-        with open(cfg.WS_PORTS_FILE, "r") as f:
+        with open(cfg.WS_PORTS_FILE) as f:
             data = json.load(f)
     except Exception:
         data = []
@@ -95,9 +93,7 @@ def add_streams_sqlite_with_ip_extended(new_entries):
     try:
         cur = conn.cursor()
         # Check if the 'stream' table exists
-        cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='stream';"
-        )
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='stream';")
         if not cur.fetchone():
             ws_error(
                 "[WS]",
@@ -187,9 +183,7 @@ def add_streams_sqlite_with_ip_extended(new_entries):
                         f"WireGuard available but no peer found, using client IP: {original_ip}",
                     )
             else:
-                ws_info(
-                    "[STREAM_MANAGER]", f"No WireGuard, using client IP: {original_ip}"
-                )
+                ws_info("[STREAM_MANAGER]", f"No WireGuard, using client IP: {original_ip}")
 
             ws_info(
                 "[STREAM_MANAGER]",
@@ -280,15 +274,14 @@ def add_streams_sqlite_with_ip_extended(new_entries):
             table.add_column("Status", style="bold", justify="center")
             for row in summary_rows:
                 table.add_row(*[str(x) for x in row])
-                from UI.console_handler import console_handler
                 import io
+
+                from UI.console_handler import console_handler
 
                 log_buffer = io.StringIO()
                 from rich.console import Console as RichConsole
 
-                log_console = RichConsole(
-                    file=log_buffer, force_terminal=True, color_system=None
-                )
+                log_console = RichConsole(file=log_buffer, force_terminal=True, color_system=None)
                 log_console.print(table)
                 table_text = log_buffer.getvalue()
                 console_handler.console.print(table)

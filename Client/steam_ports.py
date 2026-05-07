@@ -1,6 +1,7 @@
 from rich.console import Console
 from rich.progress import Progress
-from UI.console_handler import ws_info, ws_error
+
+from UI.console_handler import ws_info
 
 console = Console()
 
@@ -192,9 +193,7 @@ def get_common_steam_ports():
 
     # Use a progress bar to show progress while generating ports
     with Progress() as progress:
-        task = progress.add_task(
-            "[cyan]Generating port combinations...", total=len(game_ports)
-        )
+        task = progress.add_task("[cyan]Generating port combinations...", total=len(game_ports))
 
         for base, count, description in game_ports:
             for i in range(count):

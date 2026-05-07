@@ -1,21 +1,19 @@
 import ipaddress
+import os
 import platform
-import socket
 import sqlite3
-import struct
 import subprocess
 import sys
-import os
 
 # Add parent directory to sys.path to allow relative imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Config import config as cfg
+from npm import npm_handler as npm
 from Streams import stream_creation as sc
 from Streams import stream_creation_db as stream_db
-from npm import npm_handler as npm
+from UI.console_handler import ws_error, ws_info, ws_warning
 from Wireguard import wireguard_tools as wg_tools
-from UI.console_handler import ws_info, ws_error, ws_warning
 
 # This module provides utility functions for managing WireGuard streams and resolving port conflicts.
 # It interacts with the database, WireGuard interface, and NPM (Nginx Proxy Manager) to automate stream creation and updates.
@@ -145,9 +143,7 @@ async def create_wg_conflict_resolution_streams(wg_streams):
                         )
                 else:
                     # Create new stream entry for the incoming port
-                    new_entries.append(
-                        (incoming_port, protocol, server_ip, forwarding_port)
-                    )
+                    new_entries.append((incoming_port, protocol, server_ip, forwarding_port))
                     ws_info(
                         "[WS_CLIENT]",
                         f"Queued new stream: {incoming_port} ({protocol}) → {server_ip}:{forwarding_port}",
@@ -162,8 +158,7 @@ async def create_wg_conflict_resolution_streams(wg_streams):
 
         # Sync configuration and reload NPM
         if new_entries or any(
-            existing
-            for incoming_port, protocol, server_ip, forwarding_port in wg_streams
+            existing for incoming_port, protocol, server_ip, forwarding_port in wg_streams
         ):
             stream_db.sync_streams_conf_with_sqlite()
             npm.reload_npm()
@@ -174,7 +169,7 @@ async def create_wg_conflict_resolution_streams(wg_streams):
         else:
             ws_info(
                 "[WS_CLIENT]",
-                f"No new WireGuard streams needed, all ports already configured",
+                "No new WireGuard streams needed, all ports already configured",
             )
 
     except Exception as e:

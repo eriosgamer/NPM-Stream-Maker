@@ -1,8 +1,8 @@
 import os
 import sys
-from rich.table import Table
+
 from rich.console import Console
-from rich.prompt import Prompt
+from rich.table import Table
 
 # Add the parent directory to sys.path to allow importing configuration
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,9 +47,7 @@ def show_streams():
                 table.add_column("Status", style="blue")
 
                 # Sort streams by ID to ensure consistent ordering
-                sorted_streams = sorted(
-                    streams, key=lambda x: x[0]
-                )  # x[0] is stream_id
+                sorted_streams = sorted(streams, key=lambda x: x[0])  # x[0] is stream_id
 
                 for (
                     stream_id,
@@ -82,9 +80,7 @@ def show_streams():
                 log_buffer = io.StringIO()
                 from rich.console import Console as RichConsole
 
-                log_console = RichConsole(
-                    file=log_buffer, force_terminal=True, color_system=None
-                )
+                log_console = RichConsole(file=log_buffer, force_terminal=True, color_system=None)
                 log_console.print(table)
                 table_text = log_buffer.getvalue()
                 ws_info("[STREAM_MANAGER]", table_text)

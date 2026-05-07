@@ -1,13 +1,15 @@
+import os
 import shutil
 import sys
+
 from rich.prompt import Prompt
-import os
 
 # Add the parent directory to sys.path to allow importing config from Config
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Config import config as cfg
 from rich.console import Console
-from UI.console_handler import ws_info, ws_error
+
+from Config import config as cfg
+from UI.console_handler import ws_error, ws_info
 
 console = Console()
 

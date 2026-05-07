@@ -8,14 +8,15 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import sqlite3
+
 from rich.console import Console
 
 from Config import config as cfg
+from npm import npm_handler as npm
 from Streams import stream_com_handler as sch
 from Streams import stream_creation as sc
 from Streams import stream_creation_db as scdb
-from npm import npm_handler as npm
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error, ws_info
 
 console = Console()
 
@@ -75,9 +76,7 @@ def view_port_conflict_resolutions():
     Shows all current port conflict resolutions, both from the database and from files.
     Also includes client assignments.
     """
-    ws_info(
-        "[CONFLICT]", "\n[bold cyan]📊 PORT CONFLICT RESOLUTIONS STATUS[/bold cyan]"
-    )
+    ws_info("[CONFLICT]", "\n[bold cyan]📊 PORT CONFLICT RESOLUTIONS STATUS[/bold cyan]")
     ws_info("[CONFLICT]", "=" * 60)
 
     # Show database conflict resolutions
@@ -95,7 +94,7 @@ def view_port_conflict_resolutions():
 
         resolutions_file = "port_conflict_resolutions.json"
         if os.path.exists(resolutions_file):
-            with open(resolutions_file, "r") as f:
+            with open(resolutions_file) as f:
                 saved_resolutions = json.load(f)
 
             if saved_resolutions:
@@ -128,7 +127,7 @@ def view_port_conflict_resolutions():
     try:
         assignments_file = "client_assignments.json"
         if os.path.exists(assignments_file):
-            with open(assignments_file, "r") as f:
+            with open(assignments_file) as f:
                 client_assignments = json.load(f)
 
             if client_assignments:
@@ -138,9 +137,7 @@ def view_port_conflict_resolutions():
                 )
                 for key, assignment in client_assignments.items():
                     port, proto = key.split("|", 1)
-                    status = (
-                        "ASSIGNED" if assignment["assigned"] else "CONFLICT RESOLVED"
-                    )
+                    status = "ASSIGNED" if assignment["assigned"] else "CONFLICT RESOLVED"
                     incoming_port = assignment["incoming_port"]
                     if assignment["assigned"]:
                         ws_info(
@@ -184,8 +181,7 @@ def check_port_conflicts(requested_ports, client_ip=None):
     if not os.path.exists(cfg.SQLITE_DB_PATH):
         ws_info("[STREAM_MANAGER]", f"Database not found: {cfg.SQLITE_DB_PATH}")
         return {
-            port: {"has_conflict": False, "existing_stream": None}
-            for port, _ in requested_ports
+            port: {"has_conflict": False, "existing_stream": None} for port, _ in requested_ports
         }
 
     conflict_info = {}
@@ -268,8 +264,7 @@ def check_port_conflicts(requested_ports, client_ip=None):
         ws_error("[STREAM_MANAGER]", f"Error checking port conflicts: {e}")
         # Return no conflicts on error to be safe
         conflict_info = {
-            port: {"has_conflict": False, "existing_stream": None}
-            for port, _ in requested_ports
+            port: {"has_conflict": False, "existing_stream": None} for port, _ in requested_ports
         }
     finally:
         conn.close()
@@ -326,9 +321,7 @@ async def broadcast_port_conflict_resolutions(conflicts):
         if dc_id in cfg.connected_clients:
             del cfg.connected_clients[dc_id]
 
-    ws_info(
-        "[WS]", f"Broadcasted port conflict resolutions to {broadcasted_to} servers"
-    )
+    ws_info("[WS]", f"Broadcasted port conflict resolutions to {broadcasted_to} servers")
 
 
 # Copied: main entry point for processing incoming port requests and resolving conflicts
@@ -355,9 +348,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
 
     # Convert ports to check format and pass client IP
     ports_to_check = [
-        (entry.get("port"), entry.get("protocol", "tcp"))
-        for entry in ports
-        if entry.get("port")
+        (entry.get("port"), entry.get("protocol", "tcp")) for entry in ports if entry.get("port")
     ]
 
     # Check for conflicts, excluding same client conflicts
@@ -388,9 +379,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
             existing_client_ports.append(entry)
         else:
             # Check if there's an existing conflict resolution for this port
-            existing_resolution = sch.check_existing_conflict_resolution(
-                ip, port, protocol
-            )
+            existing_resolution = sch.check_existing_conflict_resolution(ip, port, protocol)
 
             if existing_resolution:
                 incoming_port, stream_id = existing_resolution
@@ -413,9 +402,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
                 conflict_ports.append(entry)
 
     ws_info("[WS]", f"Existing client streams: {len(existing_client_ports)}")
-    ws_info(
-        "[WS]", f"Existing conflict resolutions: {len(existing_conflict_resolutions)}"
-    )
+    ws_info("[WS]", f"Existing conflict resolutions: {len(existing_conflict_resolutions)}")
     ws_info("[WS]", f"Ports without conflicts: {len(no_conflict_ports)}")
     ws_info("[WS]", f"Ports needing new conflict resolution: {len(conflict_ports)}")
 
@@ -456,9 +443,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
         for entry in no_conflict_ports:
             port = entry.get("port")
             protocol = entry.get("protocol", "tcp")
-            new_entries.append(
-                (port, protocol, ip, port)
-            )  # incoming=forwarding for no conflicts
+            new_entries.append((port, protocol, ip, port))  # incoming=forwarding for no conflicts
 
         if new_entries:
             sc.add_streams_sqlite_with_ip_extended(new_entries)
@@ -480,9 +465,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
     if conflict_ports:
         # Get alternative ports for real conflicts
         conflict_port_numbers = [entry.get("port") for entry in conflict_ports]
-        alternative_ports = sch.get_next_available_ports(
-            conflict_port_numbers, len(conflict_ports)
-        )
+        alternative_ports = sch.get_next_available_ports(conflict_port_numbers, len(conflict_ports))
 
         # Create streams with alternative ports
         conflict_entries = []
@@ -490,9 +473,7 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
             original_port = entry.get("port")
             protocol = entry.get("protocol", "tcp")
             alternative_port = (
-                alternative_ports[i]
-                if i < len(alternative_ports)
-                else original_port + 10000
+                alternative_ports[i] if i < len(alternative_ports) else original_port + 10000
             )
 
             # Create stream: alternative_port -> ip:original_port
@@ -529,11 +510,11 @@ async def process_ports_with_conflict_resolution(ip, hostname, ports, websocket)
     if no_conflict_ports or conflict_ports:
         scdb.sync_streams_conf_with_sqlite()
         npm.reload_npm()
-        ws_info("[WS]", f"Configuration synced and NPM reloaded")
+        ws_info("[WS]", "Configuration synced and NPM reloaded")
     else:
         ws_info(
             "[WS]",
-            f"No new streams created - all ports already exist or have existing resolutions",
+            "No new streams created - all ports already exist or have existing resolutions",
         )
 
     # Send response to client

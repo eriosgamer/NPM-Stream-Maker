@@ -1,21 +1,21 @@
-import sys
-import os
-import subprocess
-import re
 import fnmatch
+import os
+import re
+import subprocess
+import sys
+
 from rich.console import Console
 
 console = Console()
 
 # Add parent directory to sys.path to allow relative imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Core import id_tools
 from Client import server_querys as sq
-from Config import config as cfg
 from Client import ws_client
+from Config import config as cfg
+from Core import id_tools
+from UI.console_handler import ws_error, ws_info, ws_warning
 from Wireguard import wireguard_tools as wg_tools
-from UI.console_handler import ws_info, ws_warning, ws_error
-
 
 """
 port_scanner.py
@@ -147,9 +147,7 @@ def get_listening_ports_with_proto():
                                 ports.add((int(match.group(1)), "udp"))
 
                 except Exception as e:
-                    ws_error(
-                        "[PORT_DETECTION]", f"Error with Linux port detection: {e}"
-                    )
+                    ws_error("[PORT_DETECTION]", f"Error with Linux port detection: {e}")
 
             # Method 3: Additional check with lsof for active network connections
             try:
@@ -222,14 +220,10 @@ async def process_new_ports_with_discovery(local_ip, hostname, new_ports):
     - Updates client assignments based on the server's response.
     - Sends approved ports to WireGuard servers if available.
     """
-    ws_info(
-        "[WS_CLIENT]", f"Processing {len(new_ports)} new ports with server discovery..."
-    )
+    ws_info("[WS_CLIENT]", f"Processing {len(new_ports)} new ports with server discovery...")
 
     # Discover server types
-    conflict_resolution_servers, wireguard_servers = (
-        await id_tools.discover_server_types()
-    )
+    conflict_resolution_servers, wireguard_servers = await id_tools.discover_server_types()
 
     if not conflict_resolution_servers:
         ws_error("[WS_CLIENT]", "No conflict resolution servers available")
@@ -253,9 +247,7 @@ async def process_new_ports_with_discovery(local_ip, hostname, new_ports):
 
     ws_info("[WS_CLIENT]", f"Processed {len(results)} port results")
     if conflict_resolutions:
-        ws_warning(
-            "[WS_CLIENT]", f"Received {len(conflict_resolutions)} conflict resolutions"
-        )
+        ws_warning("[WS_CLIENT]", f"Received {len(conflict_resolutions)} conflict resolutions")
 
     # Update client assignments
     approved_ports = []

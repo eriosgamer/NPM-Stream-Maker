@@ -1,12 +1,13 @@
 import os
 import sys
+
+from rich.align import Align
 from rich.console import Console
+from rich.layout import Layout
 from rich.panel import Panel
 from rich.text import Text
-from rich.align import Align
-from rich.layout import Layout
 
-from UI.console_handler import ws_info, ws_warning, ws_error, clear_console
+from UI.console_handler import clear_console, ws_error, ws_info, ws_warning
 
 # Import methods for key handling
 if os.name == "nt":
@@ -249,9 +250,7 @@ WantedBy=multi-user.target
             shutil.move(local_path, systemd_path)
             ws_info("[SERVICE MENU]", f"[green]Moved to {systemd_path}.[/green]")
             os.system("systemctl daemon-reload")
-            ws_info(
-                "[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]"
-            )
+            ws_info("[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]")
             os.system(f"systemctl enable --now {service_name}")
             ws_info(
                 "[SERVICE MENU]",
@@ -267,8 +266,6 @@ WantedBy=multi-user.target
 
 
 def remove_systemd_service():
-    import shutil
-
     tipos = [
         ("WebSocket Server", "npm-ws-server.service"),
         ("WebSocket Client", "npm-ws-client.service"),
@@ -304,13 +301,9 @@ def remove_systemd_service():
             )
             if os.path.exists(systemd_path):
                 os.remove(systemd_path)
-                ws_info(
-                    "[SERVICE MENU]", f"[green]File {systemd_path} removed.[/green]"
-                )
+                ws_info("[SERVICE MENU]", f"[green]File {systemd_path} removed.[/green]")
             os.system("systemctl daemon-reload")
-            ws_info(
-                "[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]"
-            )
+            ws_info("[SERVICE MENU]", "[green]systemctl daemon-reload executed.[/green]")
         else:
             ws_warning(
                 "[SERVICE MENU]",

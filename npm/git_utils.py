@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import subprocess
+
 from rich.progress import Progress
 
 # This module provides utilities for working with git repositories,
@@ -37,8 +38,10 @@ def fix_permissions(path, uid=None, gid=None):
     Si uid/gid no se especifican, usa los del usuario actual.
     Compatible con Windows y Unix.
     """
+
     def get_uid_safe():
         import os
+
         if hasattr(os, "getuid"):
             return os.getuid()
         else:
@@ -46,6 +49,7 @@ def fix_permissions(path, uid=None, gid=None):
 
     def get_gid_safe():
         import os
+
         if hasattr(os, "getgid"):
             return os.getgid()
         else:

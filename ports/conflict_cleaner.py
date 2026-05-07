@@ -6,8 +6,9 @@
 
 import json
 import os
-import sys
 import sqlite3
+import sys
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,7 +17,7 @@ from rich.console import Console
 # Add the parent directory to sys.path to allow importing the config module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error, ws_info
 
 console = Console()
 
@@ -68,9 +69,7 @@ def clear_all_conflict_resolution_data():
             finally:
                 conn.close()
     except Exception as e:
-        ws_error(
-            "[STREAM_MANAGER]", f"Error clearing database conflict resolutions: {e}"
-        )
+        ws_error("[STREAM_MANAGER]", f"Error clearing database conflict resolutions: {e}")
 
     ws_info("[STREAM_MANAGER]", f"Total items cleared: {cleared_count}")
     return cleared_count

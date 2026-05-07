@@ -1,19 +1,20 @@
 import datetime
-import subprocess
 import os
+import subprocess
+
 from rich.console import Console
 
 console = Console()
-import time
 import asyncio
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from npm import npm_handler as npmh
 from npm import npm_status as npmst
 from ports import conflict_handler as ch
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 # This module provides utility functions to check Docker availability
 # and set an environment variable accordingly.
@@ -93,9 +94,7 @@ def stop_running_docker_containers():
     """
     try:
         # Run 'docker stop $(docker ps -q)' to stop all running containers
-        subprocess.run(
-            ["docker", "stop", "$(docker", "ps", "-q)"], shell=True, check=True
-        )
+        subprocess.run(["docker", "stop", "$(docker", "ps", "-q)"], shell=True, check=True)
         return True
     except subprocess.CalledProcessError:
         return False
@@ -136,9 +135,7 @@ def check_and_start_npm():
                 ws_info("[WS]", "NPM is now running and accessible")
                 return True
             else:
-                ws_warning(
-                    "[WS]", "NPM started but not yet accessible, waiting longer..."
-                )
+                ws_warning("[WS]", "NPM started but not yet accessible, waiting longer...")
                 # Give it more time
                 time.sleep(15)
                 npm_status = npmst.check_npm()
@@ -185,9 +182,7 @@ def cleanup_disconnected_clients():
             # Format last_seen and current_time
             try:
                 last_seen_fmt = (
-                    datetime.datetime.fromtimestamp(last_seen).strftime(
-                        "%d/%m/%Y %I:%M:%S %p"
-                    )
+                    datetime.datetime.fromtimestamp(last_seen).strftime("%d/%m/%Y %I:%M:%S %p")
                     if last_seen
                     else "N/A"
                 )

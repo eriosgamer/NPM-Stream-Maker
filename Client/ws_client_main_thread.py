@@ -1,33 +1,34 @@
 import asyncio
-import json
-import socket
-import time
-import os
-import sys
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich import box
-import websockets
-from Client import ws_client as wsc
-from Client import port_file_reader as pfr
-from UI.console_handler import ws_info, ws_error, ws_warning, ws_success, ws_connection
 import ctypes
+import json
+import os
+import socket
+import sys
+import time
+
+import websockets
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from Client import port_file_reader as pfr
 from Client import (
     server_querys,
 )  # Añadir import para query_server_capabilities y send_ports_to_conflict_resolution_server
+from Client import ws_client as wsc
 from Core import (
     remote_message_handler,
 )  # Importa el handler para acceder a pending_remote_ports, etc.
+from UI.console_handler import ws_connection, ws_error, ws_info, ws_success, ws_warning
 
 # Add parent directory to sys.path to allow imports from sibling modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Wireguard import wireguard_tools as wg_tools
-from Core import id_tools as id
 from ports import port_scanner as ps
-from ports.port_scanner_main import gen_ports_file
 from ports import ports_utils as psu
+from ports.port_scanner_main import gen_ports_file
 from WebSockets import diagnostics
+from Wireguard import wireguard_tools as wg_tools
 
 ping_interval = 90
 inactive_timeout = 600  # 10 minutes
@@ -81,9 +82,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
         return
 
     # --- NUEVO: Consultar capacidades del servidor ---
-    server_caps = await server_querys.query_server_capabilities(
-        server_uri, server_token
-    )
+    server_caps = await server_querys.query_server_capabilities(server_uri, server_token)
     if not server_caps:
         ws_error("WS_CLIENT", f"Could not get server capabilities for {server_uri}")
         return
@@ -131,9 +130,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                 # --- AGREGAR PUERTOS REMOTOS PENDIENTES ---
                 def process_pending_remote_ports():
                     # Limpieza automática antes de procesar
-                    if hasattr(
-                        remote_message_handler, "clean_old_pending_remote_ports"
-                    ):
+                    if hasattr(remote_message_handler, "clean_old_pending_remote_ports"):
                         remote_message_handler.clean_old_pending_remote_ports()
                     extra_ports = []
                     if hasattr(remote_message_handler, "pending_remote_ports"):
@@ -162,9 +159,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                                 "acl_allow_list": acl_allow_list,
                                 "acl_deny_list": acl_deny_list,
                             }
-                            new_entries.append(
-                                (port, proto, forwarding_host, forwarding_port)
-                            )
+                            new_entries.append((port, proto, forwarding_host, forwarding_port))
                     if new_entries:
                         from Streams import stream_creation
 
@@ -180,13 +175,13 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                 if os.name == "nt":
                     console = Console()
                     try:
-                        with open("ports.txt", "r") as f:
+                        with open("ports.txt") as f:
                             ports_txt_content = f.read()
                         ws_info("[WS_CLIENT]", "Contents of ports.txt:")
                         ws_info("[WS_CLIENT]", ports_txt_content)
                     except Exception as e:
                         ws_error("[WS_CLIENT]", f"Error reading ports.txt: {e}")
-                        
+
                 # DEBUG: Print parsed ports by client on Windows
                 if os.name == "nt":
                     ws_info("[WS_CLIENT]", "Ports parsed by the client:")
@@ -212,8 +207,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
 
                 if current_port_set:
                     port_list = [
-                        {"port": port, "protocol": proto}
-                        for port, proto in current_port_set
+                        {"port": port, "protocol": proto} for port, proto in current_port_set
                     ]
                     table = Table(
                         title="Ports sent to server (reconnection)",
@@ -239,38 +233,59 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         "hostname": hostname,
                         "ports": port_list,
                     }
-                    ws_info("[DEBUG]",f"Sent message to server: {data}")
+                    ws_info("[DEBUG]", f"Sent message to server: {data}")
                     await websocket.send(json.dumps(data))
                     # Esperar respuesta del servidor de resolución
                     try:
                         response_msg = await asyncio.wait_for(websocket.recv(), timeout=30)
                         response = json.loads(response_msg)
-                        ws_info("[DEBUG]",f"Received response from server: {response}")
+                        ws_info("[DEBUG]", f"Received response from server: {response}")
 
                         if response.get("type") == "client_port_conflict_resolution_response":
                             approved_ports = response.get("resultados", [])
-                            ws_info("WS_CLIENT", f"Received {len(approved_ports)} approved ports from conflict resolution server")
+                            ws_info(
+                                "WS_CLIENT",
+                                f"Received {len(approved_ports)} approved ports from conflict resolution server",
+                            )
                             # Enviar puertos aprobados a todos los servidores WireGuard configurados
                             from Client import server_querys as sq
+
                             wg_successes = await sq.send_pre_approved_ports_to_wireguard_servers(
                                 approved_ports, local_ip, hostname
                             )
-                            ws_info("WS_CLIENT", f"Forwarded approved ports to {len(wg_successes)} WireGuard servers")
+                            ws_info(
+                                "WS_CLIENT",
+                                f"Forwarded approved ports to {len(wg_successes)} WireGuard servers",
+                            )
                             # Esperar confirmación del servidor WireGuard
                             try:
-                                wg_response_msg = await asyncio.wait_for(websocket.recv(), timeout=15)
-                                ws_info("WS_CLIENT", f"Respuesta recibida de WireGuard: {wg_response_msg}")
+                                wg_response_msg = await asyncio.wait_for(
+                                    websocket.recv(), timeout=15
+                                )
+                                ws_info(
+                                    "WS_CLIENT",
+                                    f"Respuesta recibida de WireGuard: {wg_response_msg}",
+                                )
                                 wg_response = json.loads(wg_response_msg)
                                 if wg_response.get("status") == "ok":
-                                    ws_success("WS_CLIENT", f"WireGuard server processed {len(approved_ports)} ports successfully")
+                                    ws_success(
+                                        "WS_CLIENT",
+                                        f"WireGuard server processed {len(approved_ports)} ports successfully",
+                                    )
                                     # Solo aquí marcar como procesados
                                     sent_ports.update(current_port_set)
                                 else:
-                                    ws_error("WS_CLIENT", f"WireGuard server did not confirm port processing: {wg_response}")
+                                    ws_error(
+                                        "WS_CLIENT",
+                                        f"WireGuard server did not confirm port processing: {wg_response}",
+                                    )
                             except Exception as e:
                                 ws_error("WS_CLIENT", f"No confirmation from WireGuard server: {e}")
                         else:
-                            ws_error("WS_CLIENT", f"Unexpected response from conflict resolution server: {response}")
+                            ws_error(
+                                "WS_CLIENT",
+                                f"Unexpected response from conflict resolution server: {response}",
+                            )
                     except Exception as e:
                         ws_error("WS_CLIENT", f"Error waiting for approval response: {e}")
                     sent_ports.update(current_port_set)
@@ -327,9 +342,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
 
                     current_ports = ps.get_listening_ports_with_proto()
                     allowed_and_listening = [
-                        (port, proto)
-                        for port, proto in current_ports
-                        if port in allowed_ports
+                        (port, proto) for port, proto in current_ports if port in allowed_ports
                     ]
                     current_port_set = set(allowed_and_listening)
 
@@ -355,8 +368,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                             )
                         else:
                             port_list = [
-                                {"port": port, "protocol": proto}
-                                for port, proto in new_ports
+                                {"port": port, "protocol": proto} for port, proto in new_ports
                             ]
                         # Añadir detalles de forwarding_info si existen (para puertos remotos manuales)
                         for idx, entry in enumerate(port_list):
@@ -398,9 +410,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         )
                     else:
                         # Send a logical ping
-                        await websocket.send(
-                            json.dumps({"type": "ping", "token": server_token})
-                        )
+                        await websocket.send(json.dumps({"type": "ping", "token": server_token}))
 
                     # Update last_seen timestamps
                     current_time = time.time()

@@ -21,16 +21,17 @@ Dependencies:
 import json
 import logging
 import os
-from rich.console import Console
 import sqlite3
 import sys
+
+from rich.console import Console
 
 # Add parent directory to sys.path to allow relative imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Config import config as cfg
 from ports import conflict_resolution as cf_res
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error
 
 console = Console()
 
@@ -67,9 +68,7 @@ def get_conflict_resolution_info():
             if udp_f:
                 protocols.append("UDP")
 
-            conflict_streams.append(
-                (incoming_port, forwarding_host, forwarding_port, protocols)
-            )
+            conflict_streams.append((incoming_port, forwarding_host, forwarding_port, protocols))
 
     except Exception as e:
         ws_error("[STREAM_MANAGER]", f"Error getting conflict resolution info: {e}")
@@ -196,9 +195,7 @@ async def notify_clients_of_conflicts_and_assignments():
                 )
             else:
                 alt_port = None
-                used_incoming_ports = set(
-                    p for (p, _), cid in cfg.assigned_ports.items()
-                )
+                used_incoming_ports = set(p for (p, _), cid in cfg.assigned_ports.items())
                 min_port, max_port = 20000, 60000
                 for candidate in range(min_port, max_port):
                     if candidate not in used_incoming_ports:
@@ -293,9 +290,7 @@ async def notify_clients_of_conflicts_and_assignments():
                         f"Error notifying client {client_id} of port assignment/conflict update: {ex}",
                     )
             except Exception:
-                logging.debug(
-                    f"Error checking websocket status for client {client_id}: {ex}"
-                )
+                logging.debug(f"Error checking websocket status for client {client_id}: {ex}")
 
 
 # Copied
@@ -312,6 +307,4 @@ def save_alternative_port(original_port, protocol, server_ip, alternative_port):
     """
     Save an alternative port assignment for a given original port, protocol, and server IP.
     """
-    cfg.port_conflict_resolutions[(original_port, protocol, server_ip)] = (
-        alternative_port
-    )
+    cfg.port_conflict_resolutions[(original_port, protocol, server_ip)] = alternative_port

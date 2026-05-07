@@ -20,19 +20,15 @@ def get_ws_config():
 
     # Check if the .env file exists and read its contents
     if os.path.exists(cfg.ENV_FILE):
-        with open(cfg.ENV_FILE, "r") as f:
+        with open(cfg.ENV_FILE) as f:
             for line in f:
                 line = line.strip()
                 # Parse the WS_URIS entry
                 if line.startswith("WS_URIS="):
-                    uris = [
-                        u.strip() for u in line.split("=", 1)[1].split(",") if u.strip()
-                    ]
+                    uris = [u.strip() for u in line.split("=", 1)[1].split(",") if u.strip()]
                 # Parse the WS_TOKENS entry
                 elif line.startswith("WS_TOKENS="):
-                    tokens = [
-                        t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()
-                    ]
+                    tokens = [t.strip() for t in line.split("=", 1)[1].split(",") if t.strip()]
                 # Parse the WS_TOKEN_SERVER entry
                 elif line.startswith("WS_TOKEN_SERVER="):
                     server_token = line.split("=", 1)[1]
@@ -54,7 +50,7 @@ def save_ws_config(uris=None, tokens=None, server_token=None):
 
     # Read the existing .env file and update relevant lines
     if os.path.exists(cfg.ENV_FILE):
-        with open(cfg.ENV_FILE, "r") as f:
+        with open(cfg.ENV_FILE) as f:
             for line in f:
                 # Update WS_URIS if new URIs are provided
                 if line.startswith("WS_URIS=") and uris is not None:

@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import sys
+
 import dotenv
 
 dotenv.load_dotenv()
@@ -9,13 +10,13 @@ dotenv.load_dotenv()
 # Add the parent directory to sys.path to allow importing modules from parent folders
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from UI import menu  # Import menu UI module
-from Server.ws_server import start_ws_server
-from Config import config as cfg
-from Client import ws_client
-from UI.console_handler import ws_info, ws_error
-
 from rich.console import Console
+
+from Client import ws_client
+from Config import config as cfg
+from Server.ws_server import start_ws_server
+from UI import menu  # Import menu UI module
+from UI.console_handler import ws_error, ws_info
 
 console = Console()
 

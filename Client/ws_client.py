@@ -2,17 +2,17 @@ import asyncio
 import json
 import os
 import sys
-from rich.console import Console
+
 from dotenv import load_dotenv
+from rich.console import Console
 
 # Add parent directory to sys.path to allow relative imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from WebSockets import websocket_config as ws_config
-from Config import ws_config_handler as WebSocketConfig
-from Config import config as cfg
 from Client import ws_client_main_thread as wscth
-from WebSockets import uri_config
-from UI.console_handler import ws_info, ws_error, ws_success
+from Config import config as cfg
+from Config import ws_config_handler as WebSocketConfig
+from UI.console_handler import ws_error, ws_info, ws_success
+from WebSockets import websocket_config as ws_config
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,6 +22,7 @@ console = Console()
 # This file manages the startup and main loop of the WebSocket client,
 # including configuration validation, connection testing, and port assignment management.
 client_assignments = {}
+
 
 def start_ws_client():
     """
@@ -122,8 +123,6 @@ def ensure_ports_file():
         ws_info("[WS_CLIENT]", "Ports file needs update, generating...")
         try:
             # Try to run Port_Scanner to generate ports.txt
-            import subprocess
-            import sys
 
             # Set environment variable for Port_Scanner
             env = os.environ.copy()
@@ -166,9 +165,7 @@ async def main(valid_uri_token_pairs=None):
 
     if valid_uri_token_pairs is None:
         uris, tokens, _ = WebSocketConfig.get_ws_config()
-        valid_uri_token_pairs = [
-            (uri, token) for uri, token in zip(uris, tokens) if uri and token
-        ]
+        valid_uri_token_pairs = [(uri, token) for uri, token in zip(uris, tokens) if uri and token]
 
     # Lanzar una tarea por cada servidor/token
     tasks = []
@@ -219,7 +216,7 @@ def load_client_assignments():
     global client_assignments
     try:
         if os.path.exists(cfg.CLIENT_ASSIGNMENTS_FILE):
-            with open(cfg.CLIENT_ASSIGNMENTS_FILE, "r") as f:
+            with open(cfg.CLIENT_ASSIGNMENTS_FILE) as f:
                 data = json.load(f)
 
             # Convert string keys back to tuples
@@ -230,8 +227,6 @@ def load_client_assignments():
                     if port.isdigit():
                         client_assignments[(int(port), proto)] = assignment
 
-            ws_info(
-                "[WS_CLIENT]", f"Loaded {len(client_assignments)} client assignments"
-            )
+            ws_info("[WS_CLIENT]", f"Loaded {len(client_assignments)} client assignments")
     except Exception as e:
         ws_error("[WS_CLIENT]", f"Error loading client assignments: {e}")

@@ -1,7 +1,8 @@
+import json
 import os
 import sqlite3
-import json
 import sys
+
 from rich.console import Console
 
 # Console object for rich output
@@ -11,7 +12,7 @@ console = Console()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from npm.npm_handler import reload_npm
-from UI.console_handler import ws_error, ws_info, ws_warning
+from UI.console_handler import ws_info, ws_warning
 
 
 # Main function to synchronize NGINX stream config files with the current SQLite database
@@ -72,9 +73,7 @@ def sync_streams_conf_with_sqlite():
         # Parse metadata for access control
         access_list_config = {"enabled": False, "allowed_ips": [], "denied_ips": []}
         if acl_allow_list_override is not None or acl_deny_list_override is not None:
-            access_list_config["enabled"] = bool(
-                acl_allow_list_override or acl_deny_list_override
-            )
+            access_list_config["enabled"] = bool(acl_allow_list_override or acl_deny_list_override)
             access_list_config["allowed_ips"] = acl_allow_list_override or []
             access_list_config["denied_ips"] = acl_deny_list_override or []
         elif meta:
@@ -87,15 +86,11 @@ def sync_streams_conf_with_sqlite():
         conf_lines = []
 
         # Header comments
-        conf_lines.append(
-            "# ------------------------------------------------------------"
-        )
+        conf_lines.append("# ------------------------------------------------------------")
         conf_lines.append(
             f"# {incoming_port} TCP: {'true' if tcp_f else 'false'} UDP: {'true' if udp_f else 'false'}"
         )
-        conf_lines.append(
-            "# ------------------------------------------------------------"
-        )
+        conf_lines.append("# ------------------------------------------------------------")
         conf_lines.append("")  # One blank line
         conf_lines.append("")  # Second blank line
 

@@ -1,27 +1,28 @@
-from rich.progress import Progress
-from rich.console import Console
-import re
-import shutil
 import json
-import time
-import sys
 import os
+import shutil
+import sys
+import time
 from collections import defaultdict
+
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.progress import Progress
 
 # Add the parent directory to sys.path to allow importing local modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from npm import git_utils
 from Client import port_file_reader as pfr
 from Client import steam_ports as sp
-from UI.console_handler import ws_info, ws_error, ws_warning
+from npm import git_utils
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 load_dotenv()
 
 # Delete the cloned repository to clean up
-import stat
 import platform
+import stat
 import subprocess
+
 
 def make_writable_recursive(path):
     for root, dirs, files in os.walk(path, topdown=False):
@@ -82,16 +83,12 @@ def gen_ports_file():
     # Clone and process AMPTemplates repository
     ws_info("[PORT_SCANNER]", "[bold blue]Cloning AMPTemplates repository...")
     git_utils.repo_clone(repo_url, repo_dir)
-    ws_info(
-        "[PORT_SCANNER]", "[bold green]AMPTemplates repository cloned successfully."
-    )
+    ws_info("[PORT_SCANNER]", "[bold green]AMPTemplates repository cloned successfully.")
 
     all_ports = defaultdict(set)  # Dictionary to store all found ports
 
     # Collect all files to process from the cloned repository
-    ws_info(
-        "[PORT_SCANNER]", "[bold blue]Collecting files from AMPTemplates repository..."
-    )
+    ws_info("[PORT_SCANNER]", "[bold blue]Collecting files from AMPTemplates repository...")
     files = []
     for root, _, filelist in os.walk(repo_dir):
         for fname in filelist:
@@ -192,22 +189,18 @@ def gen_ports_file():
     # Verify the file was written correctly
     if os.path.exists("ports.txt"):
         file_size = os.path.getsize("ports.txt")
-        ws_info("[PORT_SCANNER]", f"ports.txt file generated successfully!")
+        ws_info("[PORT_SCANNER]", "ports.txt file generated successfully!")
         ws_info("[PORT_SCANNER]", f"Generated on: {metadata['generated_date']}")
         ws_info("[PORT_SCANNER]", f"File size: {file_size} bytes")
-        ws_info(
-            "[PORT_SCANNER]", f"Total unique ports: {len(unique_alternative_ports)}"
-        )
+        ws_info("[PORT_SCANNER]", f"Total unique ports: {len(unique_alternative_ports)}")
         ws_info("[PORT_SCANNER]", f"Port ranges: {len(alt_ranges)}")
         ws_info("[PORT_SCANNER]", f"AMP templates processed: {total_files}")
         ws_info("[PORT_SCANNER]", f"Steam/game ports included: {len(steam_ports)}")
         # Show a preview of the content
         try:
-            with open("ports.txt", "r") as f:
+            with open("ports.txt") as f:
                 content_preview = f.read(200)  # First 200 chars
-            ws_info(
-                "[PORT_SCANNER]", f"[bold yellow]Content preview: {content_preview}..."
-            )
+            ws_info("[PORT_SCANNER]", f"[bold yellow]Content preview: {content_preview}...")
         except Exception as e:
             ws_error("[PORT_SCANNER]", f"Error al leer preview de ports.txt: {e}")
     else:
@@ -218,11 +211,9 @@ def gen_ports_file():
 
     try:
         safe_rmtree(repo_dir)
-        ws_info("[PORT_SCANNER]", f"[bold red]AMPTemplates repository deleted.")
+        ws_info("[PORT_SCANNER]", "[bold red]AMPTemplates repository deleted.")
     except Exception as e:
-        ws_error(
-            "[PORT_SCANNER]", f"[red]Could not delete AMPTemplates repository: {e}"
-        )
+        ws_error("[PORT_SCANNER]", f"[red]Could not delete AMPTemplates repository: {e}")
 
     console.rule("[bold blue]Port Scanner finished")
     return True

@@ -1,14 +1,14 @@
-from rich.console import Console
-import sys
-import os
 import asyncio
 import json
+import os
+import sys
+
+from rich.console import Console
 
 # Add the parent directory to sys.path to allow imports from sibling modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Client import ws_client
-from UI.console_handler import ws_info, ws_error
-
+from UI.console_handler import ws_error, ws_info
 
 # Initialize Rich console for colored terminal output
 console = Console()
@@ -44,31 +44,33 @@ async def handle_server_message(data, websocket=None):
         if message_type == "client_get_connected_clients":
             ws_info("[WS_CLIENT]", "Received request for connected clients list")
             from Config import config as cfg
+
             # Construir lista de clientes conectados
             clients = []
             for cid, info in cfg.connected_clients.items():
-                clients.append({
-                    "client_id": cid,
-                    "ip": info.get("ip"),
-                    "hostname": info.get("hostname"),
-                    "last_seen": info.get("last_seen"),
-                    "ports": list(info.get("ports", [])),
-                })
-            response = {
-                "type": "connected_clients_list",
-                "clients": clients
-            }
+                clients.append(
+                    {
+                        "client_id": cid,
+                        "ip": info.get("ip"),
+                        "hostname": info.get("hostname"),
+                        "last_seen": info.get("last_seen"),
+                        "ports": list(info.get("ports", [])),
+                    }
+                )
+            response = {"type": "connected_clients_list", "clients": clients}
             if websocket:
                 await websocket.send(json.dumps(response))
             else:
                 return response
             return
-        
+
         if message_type == "client_port_get_assignments":
             ws_info("[WS_CLIENT]", "Received request for port assignments")
             # Consultar la base de datos de streams activos
             import sqlite3
+
             from Config import config as cfg
+
             assignments = []
             if not os.path.exists(cfg.SQLITE_DB_PATH):
                 ws_error("[WS_CLIENT]", "NPM database not found")
@@ -95,14 +97,16 @@ async def handle_server_message(data, websocket=None):
                         if udp_f:
                             protocols.append("UDP")
                         for proto in protocols:
-                            assignments.append({
-                                "id": stream_id,
-                                "incoming_port": incoming_port,
-                                "forwarding_host": forwarding_host,
-                                "forwarding_port": forwarding_port,
-                                "protocol": proto,
-                                "enabled": bool(enabled),
-                            })
+                            assignments.append(
+                                {
+                                    "id": stream_id,
+                                    "incoming_port": incoming_port,
+                                    "forwarding_host": forwarding_host,
+                                    "forwarding_port": forwarding_port,
+                                    "protocol": proto,
+                                    "enabled": bool(enabled),
+                                }
+                            )
                 except Exception as e:
                     ws_error("[WS_CLIENT]", f"Error reading streams from DB: {e}")
                 finally:
@@ -110,10 +114,7 @@ async def handle_server_message(data, websocket=None):
                         conn.close()
                     except:
                         pass
-            response = {
-                "type": "client_port_assignments_response",
-                "assignments": assignments
-            }
+            response = {"type": "client_port_assignments_response", "assignments": assignments}
             if websocket:
                 ws_info("[WS_CLIENT]", "Sending port assignments response")
                 ws_info("[WS_CLIENT]", f"Response data: {response}")
@@ -121,10 +122,11 @@ async def handle_server_message(data, websocket=None):
             else:
                 return response
             return
-        
+
         if message_type == "client_add_stream":
             ws_info("[WS_CLIENT]", "Received request to add stream")
             from UI.stream_menu_manager import create_stream_from_remote
+
             stream_data = data.get("stream_data", {})
             ws_info("[WS_CLIENT]", f"Stream data: {stream_data}")
             if stream_data:
@@ -141,58 +143,45 @@ async def handle_server_message(data, websocket=None):
                 ws_info("[WS_CLIENT]", f"Stream creation success: {success}")
                 if success:
                     ws_info("[WS_CLIENT]", "Stream added successfully")
-                    response = {
-                        "type": "client_add_stream_response",
-                        "status": "success"
-                    }
+                    response = {"type": "client_add_stream_response", "status": "success"}
                     if websocket:
                         await websocket.send(json.dumps(response))
                 else:
                     ws_error("[WS_CLIENT]", "Failed to add stream")
-                    response = {
-                        "type": "client_add_stream_response",
-                        "status": "failure"
-                    }
+                    response = {"type": "client_add_stream_response", "status": "failure"}
                     if websocket:
                         await websocket.send(json.dumps(response))
             else:
                 ws_error("[WS_CLIENT]", "No stream data provided")
             return
-        
+
         if message_type == "client_remove_stream":
             ws_info("[WS_CLIENT]", "Received request to remove stream")
             from UI.stream_menu_manager import remove_stream_from_remote
+
             stream_id = data.get("stream_id")
             if stream_id is not None:
                 success = remove_stream_from_remote(stream_id)
                 if success:
                     ws_info("[WS_CLIENT]", f"Stream with ID {stream_id} removed successfully")
-                    response = {
-                        "type": "client_remove_stream_response",
-                        "status": "success"
-                    }
+                    response = {"type": "client_remove_stream_response", "status": "success"}
                     if websocket:
                         await websocket.send(json.dumps(response))
                 else:
                     ws_error("[WS_CLIENT]", f"Failed to remove stream with ID {stream_id}")
-                    response = {
-                        "type": "client_remove_stream_response",
-                        "status": "failure"
-                    }
+                    response = {"type": "client_remove_stream_response", "status": "failure"}
                     if websocket:
                         await websocket.send(json.dumps(response))
             else:
                 ws_error("[WS_CLIENT]", "No stream ID provided")
             return
-        
+
         if message_type == "client_port_assignments":
             assignments = data.get("assignments", [])
             conflicts = data.get("conflicts", [])
 
             # Print the number of received port assignments
-            ws_info(
-                "[WS_CLIENT]", f"Received port assignments: {len(assignments)} ports"
-            )
+            ws_info("[WS_CLIENT]", f"Received port assignments: {len(assignments)} ports")
 
             for assignment in assignments:
                 port = assignment.get("port")

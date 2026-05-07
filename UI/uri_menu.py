@@ -1,17 +1,18 @@
 import os
 import sys
-from rich.console import Console
-from rich.table import Table
-from rich.prompt import Prompt
-from rich.panel import Panel
-from rich.text import Text
+
 from rich.align import Align
+from rich.console import Console
 from rich.layout import Layout
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.table import Table
+from rich.text import Text
 
 # Add the parent directory to sys.path to allow importing modules from Config
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import ws_config_handler as WebSocketConfig
-from UI.console_handler import ws_error, ws_info, ws_warning
+from UI.console_handler import ws_error, ws_info
 
 # Add platform-specific imports for key handling
 if os.name == "nt":  # Windows
@@ -82,9 +83,7 @@ def create_uri_header():
     """
     Create the header panel for URI menu.
     """
-    header_text = Text(
-        "Edit WebSocket Server URIs", style="bold blue", justify="center"
-    )
+    header_text = Text("Edit WebSocket Server URIs", style="bold blue", justify="center")
     return Panel(Align.center(header_text), style="bold blue", padding=(0, 2), height=3)
 
 
@@ -121,9 +120,7 @@ def create_uri_table_content(uris, tokens, terminal_width, terminal_height):
     available_width = terminal_width - 10  # Account for padding and borders
     index_width = 6
     token_width = 10
-    uri_width = max(
-        20, available_width - index_width - token_width - 6
-    )  # 6 for separators
+    uri_width = max(20, available_width - index_width - token_width - 6)  # 6 for separators
 
     table.add_column("Index", style="cyan", justify="center", width=index_width)
     table.add_column("URI", style="magenta", width=uri_width)
@@ -131,9 +128,7 @@ def create_uri_table_content(uris, tokens, terminal_width, terminal_height):
 
     if uris:
         # Limit the number of rows shown to prevent overflow
-        max_rows = max(
-            3, (terminal_height - 12) // 3
-        )  # Reserve space for header, footer, and menu
+        max_rows = max(3, (terminal_height - 12) // 3)  # Reserve space for header, footer, and menu
         visible_uris = uris[:max_rows]
         visible_tokens = tokens[:max_rows]
 
@@ -148,15 +143,14 @@ def create_uri_table_content(uris, tokens, terminal_width, terminal_height):
 
         # Show indicator if there are more URIs
         if len(uris) > max_rows:
-            table.add_row(
-                "...", f"[dim]+{len(uris) - max_rows} more[/dim]", "[dim]...[/dim]"
-            )
+            table.add_row("...", f"[dim]+{len(uris) - max_rows} more[/dim]", "[dim]...[/dim]")
     else:
         table.add_row("--", "[dim]No URIs configured[/dim]", "[dim]--[/dim]")
 
     # Mostrar la tabla en consola y guardar en log si se usa en logging
-    from UI.console_handler import console_handler
     import io
+
+    from UI.console_handler import console_handler
 
     log_buffer = io.StringIO()
     from rich.console import Console as RichConsole
@@ -188,9 +182,7 @@ def create_uri_menu_content(menu_options, selected_index, uris_available):
                     f"[bold yellow]{prefix}[/bold yellow][bold red]{option_text}[/bold red] [dim red](No URIs)[/dim red]"
                 )
             else:
-                content.append(
-                    f"[red]{prefix}{option_text}[/red] [dim red](No URIs)[/dim red]"
-                )
+                content.append(f"[red]{prefix}{option_text}[/red] [dim red](No URIs)[/dim red]")
         else:
             if i == selected_index:
                 content.append(
@@ -237,17 +229,11 @@ def edit_ws_uris_menu(console):
             )
 
             # Create combined content for small screens
-            table_content = create_uri_table_content(
-                uris, tokens, terminal_width, terminal_height
-            )
-            menu_content = create_uri_menu_content(
-                menu_options, selected_index, len(uris) > 0
-            )
+            table_content = create_uri_table_content(uris, tokens, terminal_width, terminal_height)
+            menu_content = create_uri_menu_content(menu_options, selected_index, len(uris) > 0)
 
             combined_content = f"{table_content}\n\n{menu_content}"
-            layout["main"].update(
-                Panel(combined_content, style="white", padding=(0, 1))
-            )
+            layout["main"].update(Panel(combined_content, style="white", padding=(0, 1)))
         else:
             # Normal terminal - use split layout
             layout = Layout()
@@ -268,12 +254,8 @@ def edit_ws_uris_menu(console):
             )
 
             # Create and add content
-            table_content = create_uri_table_content(
-                uris, tokens, terminal_width, terminal_height
-            )
-            menu_content = create_uri_menu_content(
-                menu_options, selected_index, len(uris) > 0
-            )
+            table_content = create_uri_table_content(uris, tokens, terminal_width, terminal_height)
+            menu_content = create_uri_menu_content(menu_options, selected_index, len(uris) > 0)
 
             layout["table"].update(Panel(table_content, style="white", padding=(0, 1)))
             layout["menu"].update(Panel(menu_content, style="white", padding=(0, 1)))
@@ -316,9 +298,7 @@ def edit_ws_uris_menu(console):
                     input("\nPress Enter to continue...")
 
                 elif action == "edit":
-                    ws_info(
-                        "[WS_CLIENT]", "[bold cyan]Editing existing URI[/bold cyan]\n"
-                    )
+                    ws_info("[WS_CLIENT]", "[bold cyan]Editing existing URI[/bold cyan]\n")
 
                     # Show current URIs in a compact format
                     for idx, uri in enumerate(uris, 1):
@@ -335,10 +315,8 @@ def edit_ws_uris_menu(console):
                             )
                             - 1
                         )
-                        new_uri = Prompt.ask(f"[bold cyan]Edit URI", default=uris[idx])
-                        new_token = Prompt.ask(
-                            f"[bold cyan]Edit token", default=tokens[idx]
-                        )
+                        new_uri = Prompt.ask("[bold cyan]Edit URI", default=uris[idx])
+                        new_token = Prompt.ask("[bold cyan]Edit token", default=tokens[idx])
                         uris[idx] = new_uri.strip()
                         tokens[idx] = new_token.strip()
                         ws_info(
@@ -370,13 +348,9 @@ def edit_ws_uris_menu(console):
                         removed_uri = uris.pop(idx)
                         removed_token = tokens.pop(idx)
                         display_removed = (
-                            removed_uri[:50] + "..."
-                            if len(removed_uri) > 50
-                            else removed_uri
+                            removed_uri[:50] + "..." if len(removed_uri) > 50 else removed_uri
                         )
-                        ws_info(
-                            "[WS_CLIENT]", f"[green]Removed: {display_removed}[/green]"
-                        )
+                        ws_info("[WS_CLIENT]", f"[green]Removed: {display_removed}[/green]")
                     except (ValueError, IndexError):
                         ws_error("[WS_CLIENT]", "[red]Invalid selection[/red]")
                     input("\nPress Enter to continue...")
@@ -395,9 +369,7 @@ def edit_ws_uris_menu(console):
                     try:
                         import WebSockets.websocket_config as ws_config
 
-                        ws_config.uris, _, ws_config.uri = (
-                            WebSocketConfig.get_ws_config()
-                        )
+                        ws_config.uris, _, ws_config.uri = WebSocketConfig.get_ws_config()
                         ws_config.uri = ws_config.uris[0] if ws_config.uris else None
                     except Exception:
                         pass

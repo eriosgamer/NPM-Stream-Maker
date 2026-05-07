@@ -1,13 +1,13 @@
+import os
 import shutil
 import sys
-import os
+import time
+
+from rich.align import Align
 from rich.console import Console
+from rich.layout import Layout
 from rich.panel import Panel
 from rich.text import Text
-from rich.align import Align
-from rich.layout import Layout
-from rich.live import Live
-import time
 
 # Add platform-specific imports for key handling
 if os.name == "nt":  # Windows
@@ -18,20 +18,15 @@ else:  # Unix/Linux/macOS
 
 # Add the parent directory to sys.path to allow module imports from other folders
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Streams import stream_handler as sh
-from Streams import stream_cleaning as sc
-from ports import port_scanner as ps
-from UI import uri_menu, stream_menu_manager
-from Server import ws_server
 from Client import ws_client
-from WebSockets import diagnostics
-from npm import npm_status as npms
-from npm import npm_handler as npmh
-from Core import dependency_manager as dep_mgr
 from Config import config
 from npm import docker_utils as du
+from npm import npm_handler as npmh
+from npm import npm_status as npms
+from Server import ws_server
+from UI import stream_menu_manager, uri_menu
 from UI.console_handler import ws_error, ws_info, ws_warning
-
+from WebSockets import diagnostics
 
 # Initialize Rich console for colored terminal output
 console = Console()
@@ -204,9 +199,7 @@ def show_main_menu():
             Layout(create_footer(), name="footer", size=3),
         )
 
-        menu_content = create_menu_content(
-            menu_options, selected_index, window_start, window_size
-        )
+        menu_content = create_menu_content(menu_options, selected_index, window_start, window_size)
         layout["main"].update(Panel(menu_content, style="white", padding=(1, 2)))
         console.print(layout)
         try:
@@ -219,14 +212,10 @@ def show_main_menu():
                 _, available, _ = menu_options[selected_index]
                 if available:
                     return (
-                        str(selected_index + 1)
-                        if selected_index < len(menu_options) - 1
-                        else "0"
+                        str(selected_index + 1) if selected_index < len(menu_options) - 1 else "0"
                     )
                 else:
-                    ws_warning(
-                        "[MENU]", "Option not available. Please select another option."
-                    )
+                    ws_warning("[MENU]", "Option not available. Please select another option.")
                     time.sleep(1)
             elif key == "esc":
                 ws_info("[MENU]", "Exiting...")
@@ -326,9 +315,7 @@ def delete_npm():
     """
     npm_dir = config.NGINX_BASE_DIR
     # se imprime el directorio de Nginx Proxy Manager
-    ws_info(
-        "[MENU]", f"[bold cyan]Nginx Proxy Manager directory: {npm_dir}[/bold cyan]"
-    )
+    ws_info("[MENU]", f"[bold cyan]Nginx Proxy Manager directory: {npm_dir}[/bold cyan]")
     if os.path.exists(npm_dir):
         try:
             shutil.rmtree(npm_dir)
@@ -352,9 +339,7 @@ def delete_pycache():
     """
     Elimina todos los directorios __pycache__ en el proyecto.
     """
-    for root, dirs, files in os.walk(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ):
+    for root, dirs, files in os.walk(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))):
         for d in dirs:
             if d == "__pycache__":
                 pycache_path = os.path.join(root, d)
@@ -362,7 +347,7 @@ def delete_pycache():
                     import shutil
 
                     shutil.rmtree(pycache_path)
-                except Exception as e:
+                except Exception:
                     pass  # Ignorar errores
 
 

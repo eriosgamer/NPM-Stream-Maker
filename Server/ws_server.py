@@ -1,36 +1,35 @@
 import asyncio
+import datetime
 import logging
 import os
 import platform
 import socket
+import subprocess
 import sys
 import time
-import subprocess
+
 import websockets
-import datetime
 from dotenv import load_dotenv
 
 # Add the parent directory to sys.path to allow module imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from Core import token_manager as tm
 from Config import config as cfg
-from WebSockets import websocket_config as ws_cfg
-from ports import ports_utils as pu
-from npm import npm_handler as npm
+from Core import token_manager as tm
 from npm import docker_utils
+from npm import npm_handler as npm
 from ports import ports_handler
+from ports import ports_utils as pu
 from UI.console_handler import (
+    MessageType,
     console_handler,
+    ws_error,
     ws_info,
+    ws_status,
     ws_success,
     ws_warning,
-    ws_error,
-    ws_connection,
-    ws_status,
-    clear_console,
-    MessageType,
 )
+from WebSockets import websocket_config as ws_cfg
 
 # Load environment variables from .env file
 load_dotenv()
@@ -72,9 +71,7 @@ async def main():
             npm_ready = docker_utils.check_and_start_npm()
             npm_check_duration = time.time() - npm_check_start
 
-            ws_info(
-                "WS_SERVER", f"NPM check completed in {npm_check_duration:.2f} seconds"
-            )
+            ws_info("WS_SERVER", f"NPM check completed in {npm_check_duration:.2f} seconds")
 
             if not npm_ready:
                 ws_error(
@@ -105,9 +102,7 @@ async def main():
         port_in_use = pu.is_port_in_use(cfg.WS_SERVER_PORT)
         port_check_duration = time.time() - port_check_start
 
-        ws_info(
-            "WS_SERVER", f"Port check completed in {port_check_duration:.2f} seconds"
-        )
+        ws_info("WS_SERVER", f"Port check completed in {port_check_duration:.2f} seconds")
 
         if port_in_use:
             ws_warning("WS_SERVER", f"Port {cfg.WS_SERVER_PORT} is already in use")
@@ -118,9 +113,7 @@ async def main():
                 if processes:
                     process_details = {}
                     for i, (pid, command) in enumerate(processes, 1):
-                        process_details[f"Process {i}"] = (
-                            f"PID: {pid}, Command: {command}"
-                        )
+                        process_details[f"Process {i}"] = f"PID: {pid}, Command: {command}"
 
                     ws_warning(
                         "WS_SERVER",
@@ -157,9 +150,7 @@ async def main():
                                         timeout=10,
                                     )
                                     if result.returncode == 0:
-                                        ws_success(
-                                            "WS_SERVER", f"Terminated process {pid}"
-                                        )
+                                        ws_success("WS_SERVER", f"Terminated process {pid}")
                                         terminated_count += 1
                                     else:
                                         ws_error(
@@ -212,9 +203,7 @@ async def main():
                             "WS_SERVER",
                             f"Non-WebSocket processes are using port {cfg.WS_SERVER_PORT}",
                         )
-                        ws_warning(
-                            "WS_SERVER", "Will attempt to start server anyway..."
-                        )
+                        ws_warning("WS_SERVER", "Will attempt to start server anyway...")
                 else:
                     ws_warning(
                         "WS_SERVER",
@@ -293,9 +282,7 @@ async def main():
                             # Manejar tanto diccionarios como objetos ServerConnection
                             if hasattr(v, "__dict__"):
                                 # Es un objeto ServerConnection
-                                ws = getattr(v, "ws", None) or getattr(
-                                    v, "websocket", None
-                                )
+                                ws = getattr(v, "ws", None) or getattr(v, "websocket", None)
                                 ip = getattr(v, "ip", "Unknown")
                                 hostname = getattr(v, "hostname", "Unknown")
                                 ports = getattr(v, "ports", set())
@@ -339,9 +326,7 @@ async def main():
                                 last_seen_fmt = "N/A"
 
                             # Convertir ports a lista si es necesario
-                            if isinstance(ports, set):
-                                ports_count = len(ports)
-                            elif isinstance(ports, (list, tuple)):
+                            if isinstance(ports, set) or isinstance(ports, (list, tuple)):
                                 ports_count = len(ports)
                             else:
                                 ports_count = 0
@@ -418,12 +403,12 @@ async def main():
                 "WS_SERVER",
                 f"Port {cfg.WS_SERVER_PORT} is still in use after cleanup attempts",
                 suggestions=[
-                    f"Wait a few moments and run the server again",
-                    f"Use a different port: --ws-server-port <PORT>",
+                    "Wait a few moments and run the server again",
+                    "Use a different port: --ws-server-port <PORT>",
                     f"Use 'netstat -tulpn | grep {cfg.WS_SERVER_PORT}' to check what's using the port",
-                    f"Kill the process manually: sudo kill -9 <PID>",
-                    f"Set environment variable: WS_SERVER_PORT=<PORT>",
-                    f"Restart your system if necessary",
+                    "Kill the process manually: sudo kill -9 <PID>",
+                    "Set environment variable: WS_SERVER_PORT=<PORT>",
+                    "Restart your system if necessary",
                 ],
             )
         else:
@@ -454,9 +439,7 @@ def start_ws_server():
         ws_error(
             "WS_SERVER",
             "This script must be run from Control_Panel.py",
-            suggestions=[
-                "Use option 5 in the Control Panel to start the WebSocket server"
-            ],
+            suggestions=["Use option 5 in the Control Panel to start the WebSocket server"],
         )
         sys.exit(1)
 

@@ -1,14 +1,17 @@
-import sys, os
+import os
+import sys
+
 from rich.console import Console
-from UI.console_handler import ws_info, ws_error
+
+from UI.console_handler import ws_error, ws_info
 
 # Initialize a rich console for colored output
 console = Console()
 
 # Add the parent directory to sys.path to allow module imports from parent
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from WebSockets import diagnostics
 from Client import server_querys as sq
+from WebSockets import diagnostics
 
 # ---------------------------------------------------------------
 # This module provides tools for discovering and classifying
@@ -30,9 +33,7 @@ async def discover_server_types():
         ws_error("[WS_CLIENT]", "No servers configured")
         return [], []
 
-    ws_info(
-        "[WS_CLIENT]", f"Discovering capabilities of {len(uri_token_pairs)} servers..."
-    )
+    ws_info("[WS_CLIENT]", f"Discovering capabilities of {len(uri_token_pairs)} servers...")
 
     conflict_resolution_servers = []
     wireguard_servers = []
@@ -67,7 +68,7 @@ async def discover_server_types():
             ws_error("[WS_CLIENT]", f"✗ Error querying {uri}: {e}")
 
     # Print summary of discovered servers
-    ws_info("[WS_CLIENT]", f"Discovery complete:")
+    ws_info("[WS_CLIENT]", "Discovery complete:")
     ws_info(
         "[WS_CLIENT]",
         f"  - Conflict resolution servers: {len(conflict_resolution_servers)}",

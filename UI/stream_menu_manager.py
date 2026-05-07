@@ -1,15 +1,16 @@
-import sys
-import os
-import time
 import asyncio
+import os
+import sys
+
+from rich.align import Align
 from rich.console import Console
+from rich.layout import Layout
 from rich.panel import Panel
 from rich.text import Text
-from rich.align import Align
-from rich.layout import Layout
-from UI.console_handler import ws_info, ws_error, ws_warning
+
 from Core.remote_message_handler import create_stream_from_remote
 from Streams.stream_cleaning import delete_specific_stream
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 # Key handling cross-platform
 if os.name == "nt":
@@ -113,26 +114,12 @@ def create_menu_content(menu_options, selected_index, window_start, window_size)
 
 def add_stream_form():
     clear_console()
-    console.print(
-        Panel("[bold cyan]Agregar Stream Manualmente[/bold cyan]", style="blue")
-    )
+    console.print(Panel("[bold cyan]Agregar Stream Manualmente[/bold cyan]", style="blue"))
     try:
-        port = int(
-            console.input("[bold green]Puerto (entrada/destino): [/bold green]").strip()
-        )
+        port = int(console.input("[bold green]Puerto (entrada/destino): [/bold green]").strip())
         host = console.input("[bold green]Host de destino: [/bold green]").strip()
-        tcp = (
-            console.input("[bold green]¿Activar TCP? (s/n): [/bold green]")
-            .strip()
-            .lower()
-            == "s"
-        )
-        udp = (
-            console.input("[bold green]¿Activar UDP? (s/n): [/bold green]")
-            .strip()
-            .lower()
-            == "s"
-        )
+        tcp = console.input("[bold green]¿Activar TCP? (s/n): [/bold green]").strip().lower() == "s"
+        udp = console.input("[bold green]¿Activar UDP? (s/n): [/bold green]").strip().lower() == "s"
         stream_data = {
             "incoming_port": port,
             "forwarding_host": host,
@@ -175,6 +162,7 @@ def create_stream_from_remote_message(stream_data):
         ws_error("[ADD_STREAM]", f"Error al crear el stream: {e}")
         return False
 
+
 def remove_stream_from_remote(stream_id):
     ws_info("[REMOVE_STREAM]", f"Eliminando stream con ID {stream_id}...")
     try:
@@ -182,7 +170,7 @@ def remove_stream_from_remote(stream_id):
         ws_info("[REMOVE_STREAM]", f"Stream con ID {stream_id} eliminado correctamente.")
     except Exception as e:
         ws_error("[REMOVE_STREAM]", f"Error al eliminar el stream: {e}")
-    
+
 
 def remove_stream_form():
     clear_console()
@@ -192,9 +180,7 @@ def remove_stream_form():
             console.input("[bold green]ID del Stream a eliminar: [/bold green]").strip()
         )
         delete_specific_stream(stream_id)
-        ws_info(
-            "[REMOVE_STREAM]", f"Stream con ID {stream_id} eliminado correctamente."
-        )
+        ws_info("[REMOVE_STREAM]", f"Stream con ID {stream_id} eliminado correctamente.")
     except Exception as e:
         ws_error("[REMOVE_STREAM]", f"Error al eliminar el stream: {e}")
 
@@ -239,9 +225,7 @@ def stream_menu_manager():
             Layout(name="main"),
             Layout(create_footer(), name="footer", size=3),
         )
-        menu_content = create_menu_content(
-            menu_options, selected_index, window_start, window_size
-        )
+        menu_content = create_menu_content(menu_options, selected_index, window_start, window_size)
         layout["main"].update(Panel(menu_content, style="white", padding=(1, 2)))
         console.print(layout)
         try:

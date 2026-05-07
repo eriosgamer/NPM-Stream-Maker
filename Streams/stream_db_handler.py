@@ -1,12 +1,13 @@
-from Config import config as cfg
 import os
 import sqlite3
 import sys
 
+from Config import config as cfg
+
 # Add the parent directory to sys.path to allow imports from parent modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 
 def clean_streams_database():
@@ -25,9 +26,7 @@ def clean_streams_database():
         with sqlite3.connect(cfg.SQLITE_DB_PATH) as conn:
             cur = conn.cursor()
             # Check if the 'stream' table exists in the database
-            cur.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='stream'"
-            )
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='stream'")
             if not cur.fetchone():
                 ws_warning("[WS]", "Table 'stream' does not exist in the database")
                 return False
@@ -51,9 +50,7 @@ def clean_streams_database():
 
             try:
                 # Mark all active streams as deleted and disable them
-                cur.execute(
-                    "UPDATE stream SET is_deleted=1, enabled=0 WHERE is_deleted=0"
-                )
+                cur.execute("UPDATE stream SET is_deleted=1, enabled=0 WHERE is_deleted=0")
                 marked_deleted = cur.rowcount
 
                 # Permanently remove all streams from the table
@@ -72,9 +69,7 @@ def clean_streams_database():
             if marked_deleted > 0:
                 ws_info("[WS]", f"Marked {marked_deleted} active streams as deleted")
             if deleted_count > 0:
-                ws_info(
-                    "[WS]", f"Permanently removed {deleted_count} streams from database"
-                )
+                ws_info("[WS]", f"Permanently removed {deleted_count} streams from database")
                 ws_info("[WS]", "Reset stream table auto-increment counter")
             else:
                 ws_info("[WS]", "No streams to remove from database")
@@ -95,17 +90,11 @@ def delete_stream(stream_id):
             return False
         with sqlite3.connect(cfg.SQLITE_DB_PATH) as conn:
             cur = conn.cursor()
-            cur.execute(
-                "SELECT id FROM stream WHERE id=? AND is_deleted=0", (stream_id,)
-            )
+            cur.execute("SELECT id FROM stream WHERE id=? AND is_deleted=0", (stream_id,))
             if not cur.fetchone():
-                ws_warning(
-                    "[WS]", f"Stream ID {stream_id} not found or already deleted"
-                )
+                ws_warning("[WS]", f"Stream ID {stream_id} not found or already deleted")
                 return False
-            cur.execute(
-                "UPDATE stream SET is_deleted=1, enabled=0 WHERE id=?", (stream_id,)
-            )
+            cur.execute("UPDATE stream SET is_deleted=1, enabled=0 WHERE id=?", (stream_id,))
             cur.execute("DELETE FROM stream WHERE id=?", (stream_id,))
             conn.commit()
             ws_info("[WS]", f"Stream ID {stream_id} deleted from database")

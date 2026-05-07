@@ -1,29 +1,28 @@
-from rich.console import Console
-import sys
-import os
 import json
-import time
+import os
 import sqlite3
+import sys
+import time
+
+from rich.console import Console
 
 # Add the parent directory to sys.path to allow imports from sibling modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
+from npm import npm_handler as npmh
+from ports import conflict_resolution as cr
+from Server import ws_server
+from Streams import stream_creation as sc
+from UI.console_handler import ws_error, ws_info, ws_warning
 from Wireguard import wireguard_tools as wg_tools
 from Wireguard import wireguard_utils as wg_utils
-from Server import ws_server
-from ports import conflict_resolution as cr
-from Streams import stream_creation as sc
-from npm import npm_handler as npmh
-from UI.console_handler import ws_info, ws_error, ws_warning
 
 # Initialize Rich console for colored terminal output
 console = Console()
 
 # Esta lista almacenará puertos que han sido solicitados para creación de stream desde un servidor remoto.
 # El ciclo principal del servidor debe procesar estos puertos como si fueran locales.
-pending_remote_ports = (
-    []
-)  # Lista global para almacenar puertos pendientes de streams remotos (aún no procesados)
+pending_remote_ports = []  # Lista global para almacenar puertos pendientes de streams remotos (aún no procesados)
 # Lista global para almacenar puertos ya procesados y sincronizados con clientes
 synced_remote_ports = set()  # set de (incoming_port, proto)
 
@@ -59,9 +58,7 @@ def remove_remote_port(port, proto):
     global pending_remote_ports
     before = len(pending_remote_ports)
     pending_remote_ports = [
-        entry
-        for entry in pending_remote_ports
-        if not (entry[0] == port and entry[1] == proto)
+        entry for entry in pending_remote_ports if not (entry[0] == port and entry[1] == proto)
     ]
     after = len(pending_remote_ports)
     if before != after:
@@ -102,11 +99,7 @@ async def handle_server_message(data, websocket=None):
 
     message_type = data.get("type")
     remote_target = data.get("remote_target", "server")
-    if (
-        message_type
-        and message_type.startswith("remote_")
-        and remote_target != "server"
-    ):
+    if message_type and message_type.startswith("remote_") and remote_target != "server":
         # Ignorar mensajes que no son para el server
         return
 
@@ -142,9 +135,7 @@ async def handle_server_message(data, websocket=None):
                     stream_data.get("acl_deny_list", []),
                     now,
                 )
-                if not any(
-                    e[0] == entry[0] and e[1] == entry[1] for e in pending_remote_ports
-                ):
+                if not any(e[0] == entry[0] and e[1] == entry[1] for e in pending_remote_ports):
                     pending_remote_ports.append(entry)
             if int(stream_data.get("udp_forwarding", 0)):
                 key = (int(stream_data["incoming_port"]), "udp")
@@ -157,19 +148,13 @@ async def handle_server_message(data, websocket=None):
                     stream_data.get("acl_deny_list", []),
                     now,
                 )
-                if not any(
-                    e[0] == entry[0] and e[1] == entry[1] for e in pending_remote_ports
-                ):
+                if not any(e[0] == entry[0] and e[1] == entry[1] for e in pending_remote_ports):
                     pending_remote_ports.append(entry)
             if websocket is not None:
                 await websocket.send(
-                    json.dumps(
-                        {"status": "ok", "msg": "Stream recibido, será procesado"}
-                    )
+                    json.dumps({"status": "ok", "msg": "Stream recibido, será procesado"})
                 )
-            ws_info(
-                "[REMOTE]", f"Stream remoto recibido y encolado para procesamiento."
-            )
+            ws_info("[REMOTE]", "Stream remoto recibido y encolado para procesamiento.")
         except Exception as e:
             if websocket is not None:
                 await websocket.send(json.dumps({"status": "error", "msg": str(e)}))
@@ -195,7 +180,7 @@ async def handle_server_message(data, websocket=None):
             if ports_pre_approved:
                 ws_warning(
                     "[WS]",
-                    f"Received pre-approved ports on conflict resolution server - this should not happen",
+                    "Received pre-approved ports on conflict resolution server - this should not happen",
                 )
                 if websocket is not None:
                     await websocket.send(
@@ -208,7 +193,7 @@ async def handle_server_message(data, websocket=None):
                     )
                 return
 
-            ws_info("[WS]", f"Processing as conflict resolution server (non-WG)")
+            ws_info("[WS]", "Processing as conflict resolution server (non-WG)")
 
             # Register this client for conflict detection
             client_id = ws_server.get_client_id(ip, hostname)
@@ -260,9 +245,7 @@ async def handle_server_message(data, websocket=None):
                     "[WS]",
                     f"Received non-pre-approved ports on WG server from {hostname} ({ip})",
                 )
-                ws_error(
-                    "[WS]", f"WireGuard servers should only receive pre-approved ports"
-                )
+                ws_error("[WS]", "WireGuard servers should only receive pre-approved ports")
                 if websocket is not None:
                     await websocket.send(
                         json.dumps(
@@ -274,7 +257,7 @@ async def handle_server_message(data, websocket=None):
                     )
                 return
 
-            ws_info("[WS]", f"Processing pre-approved ports as WireGuard server")
+            ws_info("[WS]", "Processing pre-approved ports as WireGuard server")
 
             # Determine peer IP for WireGuard if applicable
             wg_peer_ip = wg_utils.get_peer_ip_for_client()
@@ -319,9 +302,7 @@ async def handle_server_message(data, websocket=None):
                         f"WG normal: incoming={incoming_port} → {final_ip}:{forwarding_port}",
                     )
 
-                new_entries_to_add.append(
-                    (incoming_port, proto, final_ip, forwarding_port)
-                )
+                new_entries_to_add.append((incoming_port, proto, final_ip, forwarding_port))
 
                 result_ports.append(
                     {
@@ -372,7 +353,7 @@ async def handle_server_message(data, websocket=None):
                 if len(to_add) == 0:
                     ws_info(
                         "[WS]",
-                        f"Todos los streams ya existen y no requieren actualización. No se sincroniza ni recarga NPM.",
+                        "Todos los streams ya existen y no requieren actualización. No se sincroniza ni recarga NPM.",
                     )
                     if websocket is not None:
                         await websocket.send(
@@ -400,7 +381,7 @@ async def handle_server_message(data, websocket=None):
                     scdb.sync_streams_conf_with_sqlite()
 
                     # --- CHANGE: Add log before reloading NPM ---
-                    ws_info("[WS]", f"Reloading NPM due to stream change...")
+                    ws_info("[WS]", "Reloading NPM due to stream change...")
                     npmh.reload_npm()
                     # ----------------------------
 
@@ -439,16 +420,16 @@ async def create_stream_from_remote(stream_data):
     """
     Crea un stream en la base de datos usando la lógica del cliente y sincroniza con otros servidores si corresponde.
     """
-    import sys
-    import os
-    import json
     import asyncio
+    import json
+    import os
+    import sys
 
     # Importar módulos necesarios
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from Client import server_querys
     from Streams import stream_creation
     from WebSockets import diagnostics
-    from Client import server_querys
 
     # 1. Crear el stream en la base de datos local usando la función extendida
     # El cliente agrupa por puerto, pero aquí solo es uno, así que adaptamos la entrada
@@ -523,9 +504,7 @@ async def create_stream_from_remote(stream_data):
                     await wg_ws.send(json.dumps(wg_data))
                     # Esperar respuesta (opcional)
                     try:
-                        wg_response_msg = await asyncio.wait_for(
-                            wg_ws.recv(), timeout=15
-                        )
+                        wg_response_msg = await asyncio.wait_for(wg_ws.recv(), timeout=15)
                         wg_response = json.loads(wg_response_msg)
                     except Exception:
                         pass

@@ -1,21 +1,19 @@
-import time
 import datetime
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
-from rich.align import Align
-from rich.table import Table
-from rich.layout import Layout
-from rich.live import Live
-from enum import Enum
-from typing import Dict, Any, Optional, List
 import os
 import threading
-from collections import deque
-
-
-import shutil
+import time
 import zipfile
+from collections import deque
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from rich.align import Align
+from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 LOG_DIR = "logs"
 LOG_FILE = "npm_console.log"
@@ -33,15 +31,13 @@ def ensure_log_file():
     # Si existe el log, verificar si es de hoy
     if os.path.exists(LOG_FILE):
         try:
-            with open(LOG_FILE, "r") as f:
+            with open(LOG_FILE) as f:
                 first_line = f.readline()
                 second_line = f.readline()
                 # Buscar fecha en el primer log del día
                 # Si el archivo es muy grande, solo revisamos el nombre
             # Obtener fecha de modificación
-            mtime = datetime.datetime.fromtimestamp(
-                os.path.getmtime(LOG_FILE)
-            ).strftime("%Y-%m-%d")
+            mtime = datetime.datetime.fromtimestamp(os.path.getmtime(LOG_FILE)).strftime("%Y-%m-%d")
             if mtime != today_str:
                 # Mover y comprimir log anterior
                 zip_name = f"npm_console_{mtime}.zip"
@@ -49,7 +45,7 @@ def ensure_log_file():
                 with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                     zipf.write(LOG_FILE, arcname=f"npm_console_{mtime}.log")
                 os.remove(LOG_FILE)
-        except Exception as e:
+        except Exception:
             # Si hay error, continuar y crear nuevo log
             pass
     # Crear nuevo log si no existe
@@ -178,9 +174,7 @@ class ConsoleHandler:
 
         # Componente
         component_name = self.components.get(component, component)
-        formatted_text.append(
-            f"[{component_name}] ", style=f"bold {style_config['color']}"
-        )
+        formatted_text.append(f"[{component_name}] ", style=f"bold {style_config['color']}")
 
         # Mensaje principal
         formatted_text.append(message, style=style_config["color"])
@@ -197,9 +191,7 @@ class ConsoleHandler:
         """Gets the current terminal size"""
         return self.console.size
 
-    def create_header(
-        self, title: str = "NPM Stream Manager", subtitle: str = "Console Output"
-    ):
+    def create_header(self, title: str = "NPM Stream Manager", subtitle: str = "Console Output"):
         """Creates the fixed header for the console"""
         header_content = Text()
         header_content.append(title, style="bold blue")
@@ -243,9 +235,7 @@ class ConsoleHandler:
         terminal_width, terminal_height = self.get_terminal_size()
 
         # Calculate number of available lines
-        available_lines = min(
-            max_lines, terminal_height - 10
-        )  # Reserve space for header/footer
+        available_lines = min(max_lines, terminal_height - 10)  # Reserve space for header/footer
 
         # Obtener mensajes recientes
         with self.message_lock:
@@ -271,9 +261,7 @@ class ConsoleHandler:
 
         return message_panel
 
-    def start_live_mode(
-        self, title: str = "NPM Stream Manager", subtitle: str = "Live Console"
-    ):
+    def start_live_mode(self, title: str = "NPM Stream Manager", subtitle: str = "Live Console"):
         """Starts live console mode with fixed layout"""
         if self.is_live_mode:
             return
@@ -401,9 +389,7 @@ class ConsoleHandler:
                 )
                 self.add_live_message(formatted_message)
         else:
-            formatted_message = self.format_message(
-                component, message, msg_type, details
-            )
+            formatted_message = self.format_message(component, message, msg_type, details)
             if self.is_live_mode:
                 self.add_live_message(formatted_message)
             else:
@@ -442,8 +428,8 @@ class ConsoleHandler:
         """
         Shows a simple scrollable console, similar to the client, with key navigation.
         """
-        import os, sys
-        import time
+        import os
+        import sys
 
         # Manejo de teclas multiplataforma simple
         if os.name == "nt":
@@ -473,7 +459,9 @@ class ConsoleHandler:
                     return "space"
 
         else:
-            import termios, tty, select
+            import select
+            import termios
+            import tty
 
             def get_key():
                 fd = sys.stdin.fileno()
@@ -540,7 +528,7 @@ class ConsoleHandler:
                 self.console.print(msg)
             self.console.print("-" * self.console.size.width)
             self.console.print(
-                f"[dim]Scroll: {scroll_pos+1}-{min(scroll_pos+window_size, len(messages_to_show))} / {len(messages_to_show)}[/dim]"
+                f"[dim]Scroll: {scroll_pos + 1}-{min(scroll_pos + window_size, len(messages_to_show))} / {len(messages_to_show)}[/dim]"
             )
             key = get_key()
             if key == "up":
@@ -595,9 +583,7 @@ class ConsoleHandler:
         )
 
         # Crear tabla de estado
-        status_table = Table(
-            show_header=True, header_style="bold cyan", show_lines=True
-        )
+        status_table = Table(show_header=True, header_style="bold cyan", show_lines=True)
         status_table.add_column("Component", style="yellow", width=20)
         status_table.add_column("Status", style="green", width=15)
         status_table.add_column("Last Activity", style="blue", width=20)
@@ -704,9 +690,7 @@ class ConsoleHandler:
                 proto = port_info.get("protocol", "tcp")
                 protocols[proto] = protocols.get(proto, 0) + 1
 
-            summary = ", ".join(
-                [f"{count} {proto}" for proto, count in protocols.items()]
-            )
+            summary = ", ".join([f"{count} {proto}" for proto, count in protocols.items()])
             self.print_message(component, f"Port summary: {summary}", MessageType.DEBUG)
 
     def print_server_capabilities(
@@ -715,9 +699,7 @@ class ConsoleHandler:
         """
         Prints server capabilities with special formatting.
         """
-        self.print_message(
-            component, f"Server capabilities for {server_uri}", MessageType.INFO
-        )
+        self.print_message(component, f"Server capabilities for {server_uri}", MessageType.INFO)
 
         # Crear tabla de capacidades
         table = Table(show_header=True, header_style="bold cyan")
@@ -845,14 +827,10 @@ class ConsoleHandler:
         filtered_history = self.message_history
 
         if component:
-            filtered_history = [
-                msg for msg in filtered_history if msg["component"] == component
-            ]
+            filtered_history = [msg for msg in filtered_history if msg["component"] == component]
 
         if msg_type:
-            filtered_history = [
-                msg for msg in filtered_history if msg["type"] == msg_type.value
-            ]
+            filtered_history = [msg for msg in filtered_history if msg["type"] == msg_type.value]
 
         if last_n:
             filtered_history = filtered_history[-last_n:]
@@ -869,9 +847,7 @@ console_handler = ConsoleHandler()
 
 
 # Updated convenience functions
-def start_live_console(
-    title: str = "NPM Stream Manager", subtitle: str = "Live Console"
-):
+def start_live_console(title: str = "NPM Stream Manager", subtitle: str = "Live Console"):
     """Starts the live console with scroll"""
     console_handler.start_live_mode(title, subtitle)
 
@@ -947,16 +923,12 @@ def ws_error(
     append_to_log(f"[ERROR] [{component}] {clean_msg} - {details if details else ''}")
 
 
-def ws_connection(
-    component: str, uri: str, status: str, info: Optional[Dict[str, Any]] = None
-):
+def ws_connection(component: str, uri: str, status: str, info: Optional[Dict[str, Any]] = None):
     """WebSocket connection status"""
     console_handler.print_connection_status(component, uri, status, info)
 
 
-def ws_ports(
-    component: str, action: str, ports: List[Dict[str, Any]], info: Optional[str] = None
-):
+def ws_ports(component: str, action: str, ports: List[Dict[str, Any]], info: Optional[str] = None):
     """WebSocket port information"""
     console_handler.print_port_info(component, action, ports, info)
 

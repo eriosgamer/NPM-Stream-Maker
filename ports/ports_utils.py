@@ -1,13 +1,15 @@
 import json
-import time
-from Config import config as cfg
-import socket
 import os
-import sys
-import subprocess
 import platform
+import socket
+import subprocess
+import sys
+import time
+
 from rich.console import Console
-from UI.console_handler import ws_info, ws_warning, ws_error
+
+from Config import config as cfg
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 console = Console()
 
@@ -39,9 +41,7 @@ def clear_conflict_resolution_files():
             ws_warning("[WS]", f"Could not clear {file_path}: {e}")
 
     if cleared_files:
-        ws_info(
-            "[WS]", f"🧹 Cleared conflict resolution files: {', '.join(cleared_files)}"
-        )
+        ws_info("[WS]", f"🧹 Cleared conflict resolution files: {', '.join(cleared_files)}")
     else:
         ws_info("[WS]", "🧹 No conflict resolution files to clear")
 
@@ -68,14 +68,10 @@ def get_process_using_port(port):
     try:
         if platform.system().lower() == "windows":
             # Windows: use netstat -ano and tasklist
-            output = subprocess.check_output(
-                ["netstat", "-ano"], text=True, errors="ignore"
-            )
+            output = subprocess.check_output(["netstat", "-ano"], text=True, errors="ignore")
             pids = []
             for line in output.splitlines():
-                if f":{port}" in line and (
-                    "LISTENING" in line or "ESTABLISHED" in line
-                ):
+                if f":{port}" in line and ("LISTENING" in line or "ESTABLISHED" in line):
                     parts = line.split()
                     if len(parts) >= 5:
                         pid = parts[-1]
@@ -142,9 +138,7 @@ def get_process_using_port(port):
                                     pid_info = parts[-1]
                                     if "pid=" in pid_info:
                                         pid = pid_info.split("pid=")[1].split(",")[0]
-                                        command = (
-                                            parts[0] if len(parts) > 0 else "unknown"
-                                        )
+                                        command = parts[0] if len(parts) > 0 else "unknown"
                                         processes.append((pid, command))
                     except Exception:
                         pass
@@ -161,7 +155,7 @@ def save_ws_port(ip, assigned_port):
     """
     try:
         if os.path.exists(cfg.WS_PORTS_FILE):
-            with open(cfg.WS_PORTS_FILE, "r") as f:
+            with open(cfg.WS_PORTS_FILE) as f:
                 data = json.load(f)
         else:
             data = []
@@ -173,9 +167,7 @@ def save_ws_port(ip, assigned_port):
                 entry["timestamp"] = int(time.time())
                 break
         else:
-            data.append(
-                {"ip": ip, "port": assigned_port, "timestamp": int(time.time())}
-            )
+            data.append({"ip": ip, "port": assigned_port, "timestamp": int(time.time())})
 
         with open(cfg.WS_PORTS_FILE, "w") as f:
             json.dump(data, f, indent=2)
@@ -190,7 +182,7 @@ def load_ws_ports():
     """
     try:
         if os.path.exists(cfg.WS_PORTS_FILE):
-            with open(cfg.WS_PORTS_FILE, "r") as f:
+            with open(cfg.WS_PORTS_FILE) as f:
                 return json.load(f)
         else:
             return []
@@ -233,9 +225,7 @@ def should_regenerate_ports_file():
     # 24 hours in seconds
     max_age = 60 * 60 * 24
     if age > max_age:
-        ws_warning(
-            "[PORT_SCANNER]", f"ports.txt is {age//3600} hours old, regeneration needed"
-        )
+        ws_warning("[PORT_SCANNER]", f"ports.txt is {age // 3600} hours old, regeneration needed")
         return True
 
     return False

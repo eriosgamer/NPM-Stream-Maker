@@ -1,0 +1,76 @@
+[project]
+name = "npm-stream-maker"
+version = "0.1.0"
+description = "Advanced automated TCP/UDP stream management for Nginx Proxy Manager"
+requires-python = ">=3.7"
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "C90", # mccabe complexity
+]
+ignore = [
+    "E501",  # line too long
+    "B008",  # do not perform function call in argument defaults
+    "C901",  # too complex
+    "E402",  # imports not at top (intentional for sys.path.insert)
+    "E722",  # bare except (needed for compatibility)
+    "F841",  # unused variables
+    "B007",  # unused loop variables
+    "SIM103", # return condition directly
+    "SIM105", # use contextlib.suppress
+    "N812",  # non-lowercase imports
+    "B023",  # loop variable binding
+    "C401",  # unnecessary generator
+    "UP022",  # capture_output
+    "SIM101", # multiple isinstance
+    "SIM116", # consecutive if statements
+    "SIM108", # ternary operator suggestion
+    "SIM102", # nested if statements
+    "F401",  # unused import (fcntl is intentionally imported)
+    "SIM113", # enumerate suggestion
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "I001"]
+"Config/script_loader.py" = ["E402"]
+"ports/port_scanner_main.py" = ["N802", "E402"]
+"Client/port_file_reader.py" = ["E402", "C401", "UP015"]
+"Client/server_querys.py" = ["E402"]
+"Client/ws_client.py" = ["E402", "E722"]
+"Client/ws_client_main_thread.py" = ["E402"]
+"npm/git_utils.py" = ["E402"]
+"npm/npm_handler.py" = ["E402", "E722"]
+"ports/conflict_resolution.py" = ["E402", "E722", "N812"]
+"ports/conflict_handler.py" = ["E402", "E722"]
+"ports/ports_handler.py" = ["E402", "E722"]
+"ports/ports_utils.py" = ["E402"]
+"WebSockets/websocket_config.py" = ["N812", "E402"]
+"Core/message_handler.py" = ["E402", "E722"]
+"Core/remote_message_handler.py" = ["E402", "E722"]
+"Streams/stream_creation_db.py" = ["E402"]
+"Streams/stream_handler.py" = ["E402", "E722"]
+"Server/ws_server.py" = ["E402", "E722"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyright]
+pythonVersion = "3.7"
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportMissingTypeStubs = false
+exclude = ["**/__pycache__", "**/.venv"]

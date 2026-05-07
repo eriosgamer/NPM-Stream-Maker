@@ -17,8 +17,9 @@ import subprocess
 import time
 
 from rich.console import Console
+
 from Config import config as cfg
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 console = Console()
 
@@ -165,9 +166,7 @@ def reload_npm():
             text=True,
         )
         if exec_result.returncode == 0:
-            ws_info(
-                "[NPM_CLEANER]", "Nginx reloaded successfully inside the NPM container."
-            )
+            ws_info("[NPM_CLEANER]", "Nginx reloaded successfully inside the NPM container.")
         else:
             ws_warning(
                 "[NPM_CLEANER]",

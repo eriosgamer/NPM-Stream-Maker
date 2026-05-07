@@ -1,16 +1,18 @@
-from Core import token_manager as tm
 import os
-from rich.console import Console
 import subprocess
 import sys
+
 from dotenv import load_dotenv
+from rich.console import Console
+
+from Core import token_manager as tm
 
 # Add the parent directory to sys.path to allow imports from sibling modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 from Config import ws_config_handler as websocket_config
-from WebSockets import websocket_config as ws_config_handler
 from UI.console_handler import ws_error, ws_info
+from WebSockets import websocket_config as ws_config_handler
 
 console = Console()
 

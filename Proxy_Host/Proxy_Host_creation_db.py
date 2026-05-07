@@ -1,11 +1,11 @@
-import os
-import sys
-import sqlite3
 import json
+import os
+import sqlite3
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error, ws_info
 
 
 def generate_proxy_host_conf(
@@ -18,7 +18,6 @@ def generate_proxy_host_conf(
     ssl_cert_path="/etc/letsencrypt/live/npm-1/fullchain.pem",
     ssl_key_path="/etc/letsencrypt/live/npm-1/privkey.pem",
 ):
-
     domain_line = ", ".join(domains)
     server_name_line = " ".join(domains)
     conf_lines = []
@@ -42,10 +41,10 @@ def generate_proxy_host_conf(
 
     if proxy_type == "https":
         conf_lines.append(f"  listen {listen_port} ssl;")
-        conf_lines.append("#listen [::]:{} ssl;".format(listen_port))
+        conf_lines.append(f"#listen [::]:{listen_port} ssl;")
     else:
         conf_lines.append(f"  listen {listen_port};")
-        conf_lines.append("#listen [::]:{};".format(listen_port))
+        conf_lines.append(f"#listen [::]:{listen_port};")
 
     conf_lines.append("")
     conf_lines.append(f"  server_name {server_name_line};")
@@ -64,9 +63,7 @@ def generate_proxy_host_conf(
         conf_lines.append("  include conf.d/include/force-ssl.conf;")
         conf_lines.append("")
 
-    conf_lines.append(
-        f"  access_log /data/logs/proxy-host-{proxy_id}_access.log proxy;"
-    )
+    conf_lines.append(f"  access_log /data/logs/proxy-host-{proxy_id}_access.log proxy;")
     conf_lines.append(f"  error_log /data/logs/proxy-host-{proxy_id}_error.log warn;")
     conf_lines.append("")
     conf_lines.append("  proxy_set_header X-Real-IP $remote_addr;")
@@ -104,7 +101,6 @@ def add_proxy_host_sqlite(
     hsts_subdomains=0,
     access_list_id=0,
 ):
-
     if not os.path.exists(cfg.SQLITE_DB_PATH):
         ws_error("[WS]", "NPM SQLite database not found.")
         return False
@@ -113,9 +109,7 @@ def add_proxy_host_sqlite(
     try:
         cur = conn.cursor()
 
-        cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='proxy_host';"
-        )
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='proxy_host';")
         if not cur.fetchone():
             ws_error("[WS]", "La tabla 'proxy_host' no existe en la base de datos.")
             return False

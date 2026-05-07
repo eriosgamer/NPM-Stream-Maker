@@ -1,6 +1,7 @@
+import json
 import os
 import sys
-import json
+
 from rich.console import Console
 
 console = Console()
@@ -8,8 +9,8 @@ console = Console()
 # Add the parent directory to sys.path to allow imports from sibling modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
-from WebSockets import diagnostics
 from UI.console_handler import ws_error, ws_info, ws_warning
+from WebSockets import diagnostics
 
 
 def check_pending_uri_updates():
@@ -21,7 +22,7 @@ def check_pending_uri_updates():
 
     if os.path.exists(pending_file):
         try:
-            with open(pending_file, "r") as f:
+            with open(pending_file) as f:
                 pending_updates = json.load(f)
 
             # Print the number of pending URI updates found
@@ -38,9 +39,7 @@ def check_pending_uri_updates():
 
             # Remove the pending file after applying updates
             os.remove(pending_file)
-            ws_info(
-                "[WS_CLIENT]", "[bold green] Applied pending URI updates[/bold green]"
-            )
+            ws_info("[WS_CLIENT]", "[bold green] Applied pending URI updates[/bold green]")
 
         except Exception as e:
             # Print error if there was a problem applying updates
@@ -73,7 +72,7 @@ def has_uri_config_changed():
     # Check against saved hash from previous run
     if os.path.exists(config_hash_file):
         try:
-            with open(config_hash_file, "r") as f:
+            with open(config_hash_file) as f:
                 saved_hash = f.read().strip()
 
             if current_hash != saved_hash:

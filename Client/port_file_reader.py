@@ -1,9 +1,11 @@
-import sys
 import os
-from collections import defaultdict
-from UI.console_handler import ws_error, ws_info
 import re
+import sys
+from collections import defaultdict
+
 from rich.console import Console
+
+from UI.console_handler import ws_error
 
 console = Console()
 
@@ -12,9 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
 
 # Compile a regex to find lines with keywords (from config) and port numbers
-PORT_REGEX = re.compile(
-    r"(?i)\b(" + "|".join(cfg.PORT_KEYWORDS) + r")\b[^0-9]{0,10}([0-9]{2,5})"
-)
+PORT_REGEX = re.compile(r"(?i)\b(" + "|".join(cfg.PORT_KEYWORDS) + r")\b[^0-9]{0,10}([0-9]{2,5})")
 
 
 def search_ports_in_file(filepath):
@@ -24,7 +24,7 @@ def search_ports_in_file(filepath):
     """
     # Find ports in file by keywords
     ports = defaultdict(set)
-    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+    with open(filepath, encoding="utf-8", errors="ignore") as f:
         for line in f:
             for match in PORT_REGEX.finditer(line):
                 key = match.group(1).lower()
@@ -113,7 +113,7 @@ def load_ports(path):
         return set()
 
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             content = f.read()
         return expand_ports(content)
     except Exception as e:

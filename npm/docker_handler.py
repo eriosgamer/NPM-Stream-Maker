@@ -1,21 +1,22 @@
 import json
-import sqlite3
-import time
-import websockets
 import os
+import sqlite3
 import sys
+import time
+
+import websockets
 from rich.console import Console
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
+from npm import npm_handler as npmh
+from ports import conflict_handler as ch
+from ports import conflict_resolution as cr
+from Server import ws_server
+from Streams import stream_creation as sc
+from UI.console_handler import ws_error, ws_info, ws_warning
 from Wireguard import wireguard_tools as wg_tools
 from Wireguard import wireguard_utils as wg_utils
-from Server import ws_server
-from ports import conflict_resolution as cr
-from ports import conflict_handler as ch
-from Streams import stream_creation as sc
-from npm import npm_handler as npmh
-from UI.console_handler import ws_info, ws_error, ws_warning
 
 console = Console()
 
@@ -50,9 +51,7 @@ async def handler(websocket, path=None):
 
                 # Validate token
                 if not token or str(token).strip() != str(cfg.WS_TOKEN).strip():
-                    await websocket.send(
-                        json.dumps({"status": "error", "msg": "Invalid token"})
-                    )
+                    await websocket.send(json.dumps({"status": "error", "msg": "Invalid token"}))
                     continue
 
                 # Handle token-only message
@@ -86,25 +85,19 @@ async def handler(websocket, path=None):
 
                     # Check WireGuard availability
                     wg_available = wg_tools.get_local_wg_ip("wg0") is not None
-                    wg_peer_ip = (
-                        wg_utils.get_peer_ip_for_client() if wg_available else None
-                    )
+                    wg_peer_ip = wg_utils.get_peer_ip_for_client() if wg_available else None
 
                     capabilities = {
                         "status": "ok",
                         "server_capabilities": {
                             "has_wireguard": wg_available,
                             "wireguard_ip": (
-                                wg_tools.get_local_wg_ip("wg0")
-                                if wg_available
-                                else None
+                                wg_tools.get_local_wg_ip("wg0") if wg_available else None
                             ),
                             "wireguard_peer_ip": wg_peer_ip,
                             "conflict_resolution_server": not wg_available,  # Non-WG servers handle conflict resolution
                             "port_forwarding_server": wg_available,  # WG servers handle port forwarding only
-                            "server_type": (
-                                "wireguard" if wg_available else "conflict_resolution"
-                            ),
+                            "server_type": ("wireguard" if wg_available else "conflict_resolution"),
                         },
                     }
 
@@ -123,9 +116,7 @@ async def handler(websocket, path=None):
                         f"Test connection from {hostname} ({peer}) - token valid",
                     )
                     await websocket.send(
-                        json.dumps(
-                            {"status": "ok", "msg": "Connection test successful"}
-                        )
+                        json.dumps({"status": "ok", "msg": "Connection test successful"})
                     )
                     continue
 
@@ -138,9 +129,7 @@ async def handler(websocket, path=None):
                         "ports_pre_approved", False
                     )  # Check if ports are pre-approved
 
-                    ws_info(
-                        "[WS]", f"Received {len(ports)} ports from {hostname} ({ip})"
-                    )
+                    ws_info("[WS]", f"Received {len(ports)} ports from {hostname} ({ip})")
                     ws_info("[WS]", f"Ports pre-approved: {ports_pre_approved}")
 
                     # Check if this is a WireGuard server
@@ -163,9 +152,7 @@ async def handler(websocket, path=None):
                             )
                             continue
 
-                        ws_info(
-                            "[WS]", f"Processing as conflict resolution server (non-WG)"
-                        )
+                        ws_info("[WS]", "Processing as conflict resolution server (non-WG)")
 
                         # Register this client for conflict detection
                         client_id = ws_server.get_client_id(ip, hostname)
@@ -192,19 +179,15 @@ async def handler(websocket, path=None):
 
                         # Process with conflict resolution
                         try:
-                            conflict_resolutions = (
-                                await cr.process_ports_with_conflict_resolution(
-                                    ip, hostname, ports, websocket
-                                )
+                            conflict_resolutions = await cr.process_ports_with_conflict_resolution(
+                                ip, hostname, ports, websocket
                             )
                             ws_info(
                                 "[WS]",
                                 f"Successfully processed ports with {len(conflict_resolutions)} conflicts resolved",
                             )
                         except Exception as e:
-                            ws_error(
-                                "[WS]", f"Error in conflict resolution processing: {e}"
-                            )
+                            ws_error("[WS]", f"Error in conflict resolution processing: {e}")
                             await websocket.send(
                                 json.dumps(
                                     {
@@ -222,7 +205,7 @@ async def handler(websocket, path=None):
                             )
                             ws_error(
                                 "[WS]",
-                                f"WireGuard servers should only receive pre-approved ports",
+                                "WireGuard servers should only receive pre-approved ports",
                             )
                             await websocket.send(
                                 json.dumps(
@@ -234,9 +217,7 @@ async def handler(websocket, path=None):
                             )
                             continue
 
-                        ws_info(
-                            "[WS]", f"Processing pre-approved ports as WireGuard server"
-                        )
+                        ws_info("[WS]", "Processing pre-approved ports as WireGuard server")
 
                         # Determine peer IP for WireGuard if applicable
                         wg_peer_ip = wg_utils.get_peer_ip_for_client()
@@ -323,10 +304,7 @@ async def handler(websocket, path=None):
                                     if (
                                         str(fwd_host) == str(ip_db)
                                         and int(fwd_port) == int(forwarding_port)
-                                        and (
-                                            (proto_tcp and tcp_f)
-                                            or (proto_udp and udp_f)
-                                        )
+                                        and ((proto_tcp and tcp_f) or (proto_udp and udp_f))
                                     ):
                                         unchanged.append(entry)
                                     else:
@@ -337,7 +315,7 @@ async def handler(websocket, path=None):
                             if len(to_add) == 0:
                                 ws_info(
                                     "[WS]",
-                                    f"Todos los streams ya existen y no requieren actualización. No se sincroniza ni recarga NPM.",
+                                    "Todos los streams ya existen y no requieren actualización. No se sincroniza ni recarga NPM.",
                                 )
                                 await websocket.send(
                                     json.dumps(
@@ -357,18 +335,14 @@ async def handler(websocket, path=None):
 
                         if new_entries_to_add:
                             try:
-                                sc.add_streams_sqlite_with_ip_extended(
-                                    new_entries_to_add
-                                )
+                                sc.add_streams_sqlite_with_ip_extended(new_entries_to_add)
                                 # Importar scdb aquí para evitar error de variable local no asociada
                                 from Streams import stream_creation_db as scdb
 
                                 scdb.sync_streams_conf_with_sqlite()
 
                                 # --- CHANGE: Add log before reloading NPM ---
-                                ws_info(
-                                    "[WS]", f"Reloading NPM due to stream change..."
-                                )
+                                ws_info("[WS]", "Reloading NPM due to stream change...")
                                 npmh.reload_npm()
                                 # ----------------------------
 
@@ -434,11 +408,11 @@ async def handler(websocket, path=None):
                                 f"Removed inactive ports by client request: {removed}",
                             )
                             # --- NEW: Synchronize configuration files and reload NGINX/NPM ---
-                            from Streams import stream_creation_db as scdb
                             from npm.npm_handler import reload_npm
+                            from Streams import stream_creation_db as scdb
 
                             scdb.sync_streams_conf_with_sqlite()
-                            ws_info("[WS]", f"Reloading NPM due to port removal...")
+                            ws_info("[WS]", "Reloading NPM due to port removal...")
                             reload_npm()
                         await websocket.send(
                             json.dumps(
@@ -464,9 +438,7 @@ async def handler(websocket, path=None):
                 ws_error("[WS]", f"Error processing message from {peer}: {e}")
                 try:
                     await websocket.send(
-                        json.dumps(
-                            {"status": "error", "msg": f"Server error: {str(e)}"}
-                        )
+                        json.dumps({"status": "error", "msg": f"Server error: {str(e)}"})
                     )
                 except:
                     pass

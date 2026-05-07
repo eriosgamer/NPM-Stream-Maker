@@ -1,18 +1,18 @@
 import asyncio
-import websockets
-from websockets.exceptions import ConnectionClosedError, InvalidHandshake
-from websockets.datastructures import Headers
 import json
-from rich.prompt import Prompt
-from rich.console import Console
 import os
 import sys
 
+import websockets
+from rich.console import Console
+from rich.prompt import Prompt
+from websockets.exceptions import InvalidHandshake
+
 # Add the parent directory to the path to import configuration modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Config import ws_config_handler as WebSocketConfig
 from Config import config as cfg
-from UI.console_handler import ws_error, ws_warning, ws_info
+from Config import ws_config_handler as WebSocketConfig
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 console = Console()
 
@@ -103,7 +103,7 @@ def test_ws_connection(uri, token):
             )
             ws_warning(
                 "[WS_CLIENT]",
-                f"[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]",
+                "[bold yellow]Server may not be running or may not support WebSocket upgrades[/bold yellow]",
             )
             return False
         except asyncio.TimeoutError:
@@ -119,9 +119,7 @@ def test_ws_connection(uri, token):
             )
             return False
         except Exception as e:
-            ws_error(
-                "[WS_CLIENT]", f"[bold red]Connection error for {uri}: {e}[/bold red]"
-            )
+            ws_error("[WS_CLIENT]", f"[bold red]Connection error for {uri}: {e}[/bold red]")
             return False
 
     try:
@@ -163,21 +161,19 @@ def load_state():
     """
     global assigned_ports, connected_clients, port_conflict_resolutions
     if os.path.exists(cfg.ASSIGNED_PORTS_FILE):
-        with open(cfg.ASSIGNED_PORTS_FILE, "r") as f:
+        with open(cfg.ASSIGNED_PORTS_FILE) as f:
             assigned_ports.update(json.load(f))
     if os.path.exists(cfg.CONNECTED_CLIENTS_FILE):
-        with open(cfg.CONNECTED_CLIENTS_FILE, "r") as f:
+        with open(cfg.CONNECTED_CLIENTS_FILE) as f:
             connected_clients.update(json.load(f))
     # Load port conflict resolutions
     if os.path.exists(cfg.PORT_CONFLICT_RESOLUTIONS_FILE):
         try:
-            with open(cfg.PORT_CONFLICT_RESOLUTIONS_FILE, "r") as f:
+            with open(cfg.PORT_CONFLICT_RESOLUTIONS_FILE) as f:
                 saved_resolutions = json.load(f)
             for key, alt_port in saved_resolutions.items():
                 original_port, protocol, server_ip = key.split("|", 2)
-                port_conflict_resolutions[(int(original_port), protocol, server_ip)] = (
-                    alt_port
-                )
+                port_conflict_resolutions[(int(original_port), protocol, server_ip)] = alt_port
             ws_info(
                 "[WS_CLIENT]",
                 f"[bold green]Loaded {len(port_conflict_resolutions)} port conflict resolutions from disk[/bold green]",

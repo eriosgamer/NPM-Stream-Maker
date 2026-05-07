@@ -1,13 +1,14 @@
 import os
 import secrets
 import sys
+
 from dotenv import load_dotenv
 
 # Add the parent directory to sys.path to allow importing configuration modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Config import ws_config_handler as WebSocketConfig
 from Config import config as cfg
-from UI.console_handler import ws_info, ws_error, ws_warning
+from Config import ws_config_handler as WebSocketConfig
+from UI.console_handler import ws_info
 
 # This module handles the creation, retrieval, and loading of WebSocket authentication tokens
 # for both server and client modes. It interacts with configuration files and environment variables
@@ -28,9 +29,7 @@ def get_or_create_token(console, mode):
             new_token = secrets.token_urlsafe(32)
             server_token = new_token
             WebSocketConfig.save_ws_config(server_token=server_token)
-            ws_info(
-                "[WS]", f"WebSocket server token generated and saved in {cfg.ENV_FILE}"
-            )
+            ws_info("[WS]", f"WebSocket server token generated and saved in {cfg.ENV_FILE}")
             ws_info("[WS]", f"Server Token: [bold]{server_token}[/bold]")
         else:
             ws_info("[WS]", f"WebSocket server token already exists in {cfg.ENV_FILE}")

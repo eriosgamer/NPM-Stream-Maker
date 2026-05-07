@@ -1,16 +1,16 @@
 import asyncio
+import json
 import os
 import sys
-import websockets
-import json
-from dotenv import load_dotenv
 
+import websockets
+from dotenv import load_dotenv
 from rich.console import Console
 
 # Add the parent directory to the path to allow importing local modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Client import server_querys as sq
-from UI.console_handler import ws_info, ws_error, ws_warning
+from UI.console_handler import ws_error, ws_info
 
 console = Console()
 
@@ -60,9 +60,7 @@ def show_websocket_diagnostic():
                         # Test token validation by sending the token and waiting for a response
                         token_data = {"token": token}
                         await websocket.send(json.dumps(token_data))
-                        token_response = await asyncio.wait_for(
-                            websocket.recv(), timeout=5
-                        )
+                        token_response = await asyncio.wait_for(websocket.recv(), timeout=5)
                         token_result = json.loads(token_response)
 
                         if token_result.get("status") == "ok":
@@ -72,16 +70,12 @@ def show_websocket_diagnostic():
                             )
 
                             # Query server capabilities (type, WireGuard, conflict resolution, etc.)
-                            capabilities = await sq.query_server_capabilities(
-                                uri, token
-                            )
+                            capabilities = await sq.query_server_capabilities(uri, token)
 
                             if capabilities:
                                 server_type = capabilities.get("server_type", "unknown")
                                 has_wg = capabilities.get("has_wireguard", False)
-                                is_cr = capabilities.get(
-                                    "conflict_resolution_server", False
-                                )
+                                is_cr = capabilities.get("conflict_resolution_server", False)
 
                                 ws_info(
                                     "[WS_CLIENT]",
@@ -109,15 +103,11 @@ def show_websocket_diagnostic():
                                     )
 
                                 if is_cr:
-                                    conflict_resolution_servers.append(
-                                        (uri, token, capabilities)
-                                    )
+                                    conflict_resolution_servers.append((uri, token, capabilities))
                                 elif has_wg:
                                     wireguard_servers.append((uri, token, capabilities))
                             else:
-                                ws_error(
-                                    "[WS_CLIENT]", "  ❌ Capabilities: FAILED TO QUERY"
-                                )
+                                ws_error("[WS_CLIENT]", "  ❌ Capabilities: FAILED TO QUERY")
                                 failed_servers.append(uri)
                         else:
                             ws_error("[WS_CLIENT]", "  ❌ Token: INVALID")
@@ -131,7 +121,7 @@ def show_websocket_diagnostic():
                     failed_servers.append(uri)
 
             # Print a summary of the discovery process
-            ws_info("[WS_CLIENT]", f"\n[bold cyan]📊 DISCOVERY SUMMARY[/bold cyan]")
+            ws_info("[WS_CLIENT]", "\n[bold cyan]📊 DISCOVERY SUMMARY[/bold cyan]")
             ws_info(
                 "[WS_CLIENT]",
                 f"[bold green]✅ Conflict Resolution Servers: {len(conflict_resolution_servers)}[/bold green]",
@@ -170,7 +160,7 @@ def show_websocket_diagnostic():
                     ws_info("[WS_CLIENT]", f"[bold white]   - {uri}[/bold white]")
 
             # Validate the workflow between conflict resolution and WireGuard servers
-            ws_info("[WS_CLIENT]", f"\n[bold cyan]🔄 WORKFLOW VALIDATION[/bold cyan]")
+            ws_info("[WS_CLIENT]", "\n[bold cyan]🔄 WORKFLOW VALIDATION[/bold cyan]")
             if conflict_resolution_servers and wireguard_servers:
                 ws_info(
                     "[WS_CLIENT]",
@@ -215,9 +205,7 @@ def get_ws_uris_and_tokens():
     tokens = []
     env_path = ".env"
 
-    ws_info(
-        "[WS_CLIENT]", f"[bold cyan] Loading configuration from {env_path}[/bold cyan]"
-    )
+    ws_info("[WS_CLIENT]", f"[bold cyan] Loading configuration from {env_path}[/bold cyan]")
 
     # First try environment variables (passed from Control Panel)
     env_uris = os.environ.get("WS_URIS")
@@ -238,9 +226,7 @@ def get_ws_uris_and_tokens():
         if not tokens:
             env_tokens = os.getenv("WS_TOKENS")
             if env_tokens:
-                tokens = [
-                    token.strip() for token in env_tokens.split(",") if token.strip()
-                ]
+                tokens = [token.strip() for token in env_tokens.split(",") if token.strip()]
 
     if not uris:
         ws_info("[WS_CLIENT]", "[bold red]❌ No WebSocket URIs configured[/bold red]")

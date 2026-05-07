@@ -1,9 +1,11 @@
 import asyncio
-import time
-import websockets
 import json
+import time
+
+import websockets
 from rich.console import Console
-from UI.console_handler import ws_info, ws_error
+
+from UI.console_handler import ws_error, ws_info
 from WebSockets import diagnostics as diagnostics
 
 console = Console()
@@ -90,9 +92,7 @@ async def query_server_capabilities(uri, token):
 
 
 # Copied
-async def send_ports_to_conflict_resolution_server(
-    uri, token, local_ip, hostname, new_ports
-):
+async def send_ports_to_conflict_resolution_server(uri, token, local_ip, hostname, new_ports):
     """
     Sends a list of ports to a conflict resolution server and gets the processed results.
     Returns the server's response or None if it fails.
@@ -140,9 +140,7 @@ async def send_ports_to_conflict_resolution_server(
                 "hostname": hostname,
                 "token": token,
                 "timestamp": int(time.time()),
-                "ports": [
-                    {"port": port, "protocol": proto} for port, proto in new_ports
-                ],
+                "ports": [{"port": port, "protocol": proto} for port, proto in new_ports],
                 "ports_pre_approved": False,  # Not pre-approved for conflict resolution
             }
 
@@ -195,7 +193,9 @@ async def send_pre_approved_ports_to_wireguard_servers(approved_ports, local_ip,
                 continue
 
             ws_info("[WS_CLIENT]", f"Forwarding pre-approved ports to WG server: {uri}")
-            async with websockets.connect(uri, ping_timeout=60, ping_interval=120, close_timeout=20) as websocket:
+            async with websockets.connect(
+                uri, ping_timeout=60, ping_interval=120, close_timeout=20
+            ) as websocket:
                 # Send token for auth
                 await websocket.send(json.dumps({"token": token}))
                 token_response = await asyncio.wait_for(websocket.recv(), timeout=10)

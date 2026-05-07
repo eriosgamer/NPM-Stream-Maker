@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import time
+
 from dotenv import load_dotenv
 
 # Add the parent directory to sys.path to allow importing modules from Core
@@ -71,21 +72,19 @@ WS_TOKEN = token_manager.load_ws_token()
 WS_SERVER_PORT = int(
     os.environ.get("WS_SERVER_PORT", 8765)
 )  # Default port 8765, configurable via environment
-WS_SERVER_HOST = os.environ.get("WS_SERVER_HOST", "127.0.0.1")  # Bind to localhost by default for security
+WS_SERVER_HOST = os.environ.get(
+    "WS_SERVER_HOST", "127.0.0.1"
+)  # Bind to localhost by default for security
 
 # File paths for port and client assignment tracking
 ASSIGNED_PORTS_FILE = "assigned_ports.json"
 CONNECTED_CLIENTS_FILE = "connected_clients.json"
-PORT_CONFLICT_RESOLUTIONS_FILE = (
-    "port_conflict_resolutions.json"  # New file for conflict mappings
-)
+PORT_CONFLICT_RESOLUTIONS_FILE = "port_conflict_resolutions.json"  # New file for conflict mappings
 
 # In-memory dictionaries for tracking connected clients, assigned ports, and conflict resolutions
 connected_clients = {}
 assigned_ports = {}
-port_conflict_resolutions = (
-    {}
-)  # New: {(original_port, protocol, server_ip): alternative_port}
+port_conflict_resolutions = {}  # New: {(original_port, protocol, server_ip): alternative_port}
 
 # Lock for synchronizing access to ws_ports.json
 ws_ports_lock = threading.Lock()

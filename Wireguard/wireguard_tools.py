@@ -10,23 +10,22 @@ networking and communication with remote servers.
 """
 
 import asyncio
-import json
-import socket
-import subprocess
-import struct
-import platform as platform_module
 import ipaddress
-import time
-from rich.console import Console
-import sys
+import json
 import os
+import platform as platform_module
+import socket
+import struct
+import subprocess
+import sys
+import time
 
 import websockets
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Config import config as cfg
+from UI.console_handler import ws_error, ws_info, ws_warning
 from WebSockets import diagnostics
-from UI.console_handler import ws_info, ws_error, ws_warning
 
 
 def get_peer_ip_for_client_stream():
@@ -56,9 +55,7 @@ def get_peer_ip_for_client_stream():
             )
         except Exception:
             try:
-                output = subprocess.check_output(
-                    ["ip", "addr", "show", wg_interface], text=True
-                )
+                output = subprocess.check_output(["ip", "addr", "show", wg_interface], text=True)
                 for line in output.splitlines():
                     line = line.strip()
                     if line.startswith("inet "):
@@ -73,9 +70,7 @@ def get_peer_ip_for_client_stream():
             return None
 
         # Get the subnet from the interface
-        output = subprocess.check_output(
-            ["ip", "addr", "show", wg_interface], text=True
-        )
+        output = subprocess.check_output(["ip", "addr", "show", wg_interface], text=True)
         subnet = None
         for line in output.splitlines():
             line = line.strip()
@@ -134,9 +129,7 @@ async def send_approved_ports_to_wg_servers(approved_ports, local_ip, hostname):
 
     # Skip the first server (non-WG) and send to remaining servers (WG)
     if len(uri_token_pairs) <= 1:
-        ws_info(
-            "[WS_CLIENT]", "No WireGuard servers configured, skipping WG forwarding"
-        )
+        ws_info("[WS_CLIENT]", "No WireGuard servers configured, skipping WG forwarding")
         return
 
     wg_servers = uri_token_pairs[1:]  # Skip first server
@@ -155,9 +148,7 @@ async def send_approved_ports_to_wg_servers(approved_ports, local_ip, hostname):
                 token_result = json.loads(token_response)
 
                 if token_result.get("status") != "ok":
-                    ws_error(
-                        "[WS_CLIENT]", f"Token validation failed for WG server {uri}"
-                    )
+                    ws_error("[WS_CLIENT]", f"Token validation failed for WG server {uri}")
                     continue
 
                 # Send pre-approved ports
@@ -174,9 +165,7 @@ async def send_approved_ports_to_wg_servers(approved_ports, local_ip, hostname):
                 await wg_websocket.send(json.dumps(wg_data))
 
                 # Wait for WG server response
-                wg_response_msg = await asyncio.wait_for(
-                    wg_websocket.recv(), timeout=15
-                )
+                wg_response_msg = await asyncio.wait_for(wg_websocket.recv(), timeout=15)
                 wg_response = json.loads(wg_response_msg)
 
                 if wg_response.get("status") == "ok":
@@ -191,9 +180,7 @@ async def send_approved_ports_to_wg_servers(approved_ports, local_ip, hostname):
                     )
 
         except Exception as e:
-            ws_error(
-                "[WS_CLIENT]", f"Failed to send approved ports to WG server {uri}: {e}"
-            )
+            ws_error("[WS_CLIENT]", f"Failed to send approved ports to WG server {uri}: {e}")
 
 
 # Copied
@@ -226,9 +213,7 @@ async def send_approved_ports_to_wireguard_servers(
                 token_result = json.loads(token_response)
 
                 if token_result.get("status") != "ok":
-                    ws_error(
-                        "[WS_CLIENT]", f"Token validation failed for WG server {uri}"
-                    )
+                    ws_error("[WS_CLIENT]", f"Token validation failed for WG server {uri}")
                     continue
 
                 # Send pre-approved ports
@@ -307,9 +292,7 @@ def get_local_wg_ip(interface="wg0"):
         )
     except Exception:
         try:
-            output = subprocess.check_output(
-                ["ip", "addr", "show", interface], text=True
-            )
+            output = subprocess.check_output(["ip", "addr", "show", interface], text=True)
             for line in output.splitlines():
                 if "inet " in line:
                     return line.split()[1].split("/")[0]

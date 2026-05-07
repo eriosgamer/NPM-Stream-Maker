@@ -2,9 +2,10 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Config import config as cfg
-import sqlite3
 import json
+import sqlite3
+
+from Config import config as cfg
 
 
 def list_certificates_from_db():

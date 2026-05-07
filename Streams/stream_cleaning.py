@@ -6,14 +6,14 @@ from rich.prompt import Prompt
 
 # Add parent directory to sys.path to allow relative imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Core import dependency_manager as dep_manager
-from ports import ports_utils as pu
 from Config import config as cfg
-from Streams import stream_db_handler as db_handler
+from Core import dependency_manager as dep_manager
+from npm import npm_handler as npm
 from npm import npm_handler as npmh
 from ports import conflict_cleaner as cf_clean
-from npm import npm_handler as npm
-from UI.console_handler import ws_info, ws_warning, ws_error
+from ports import ports_utils as pu
+from Streams import stream_db_handler as db_handler
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 console = Console()
 
@@ -60,9 +60,7 @@ def clear_all_streams():
 
         # Check if Docker is available for optional NPM operations
         missing_deps = dep_manager.get_missing_dependencies()
-        docker_available = (
-            "docker" not in missing_deps and "docker-compose" not in missing_deps
-        )
+        docker_available = "docker" not in missing_deps and "docker-compose" not in missing_deps
         env["DOCKER_AVAILABLE"] = "1" if docker_available else "0"
 
         ws_info("[STREAM_CLEANING]", "🧹 Cleaning all streams and stopping NPM...")
@@ -100,9 +98,7 @@ def clean_stream_configurations():
             )
             try:
                 os.makedirs(cfg.NGINX_STREAM_DIR, exist_ok=True)
-                ws_info(
-                    "[STREAM_CLEANING]", f"Created directory: {cfg.NGINX_STREAM_DIR}"
-                )
+                ws_info("[STREAM_CLEANING]", f"Created directory: {cfg.NGINX_STREAM_DIR}")
             except Exception as e:
                 ws_error(
                     "[STREAM_CLEANING]",
@@ -183,9 +179,7 @@ def clean_all_streams():
                     "[INFO] No conflict resolution files found to clear",
                 )
         except ImportError as e:
-            ws_warning(
-                "[STREAM_CLEANING]", f"[WARNING] Could not import Stream_Manager: {e}"
-            )
+            ws_warning("[STREAM_CLEANING]", f"[WARNING] Could not import Stream_Manager: {e}")
             # Fallback: manually clear files
 
             cleared_count = 0
@@ -202,9 +196,7 @@ def clean_all_streams():
                 f"[OK] Manually cleared {cleared_count} conflict resolution files",
             )
         except Exception as e:
-            ws_error(
-                "[STREAM_CLEANING]", f"Could not clear conflict resolution data: {e}"
-            )
+            ws_error("[STREAM_CLEANING]", f"Could not clear conflict resolution data: {e}")
 
         # Step 2: Clean database (only if it exists)
         ws_info("[STREAM_CLEANING]", "[STEP 2] Cleaning streams database...")
@@ -238,9 +230,7 @@ def clean_all_streams():
                         f"[INFO] File not found (already clean): {file_path}",
                     )
             except Exception as e:
-                ws_error(
-                    "[STREAM_CLEANING]", f"[ERROR] Could not remove {file_path}: {e}"
-                )
+                ws_error("[STREAM_CLEANING]", f"[ERROR] Could not remove {file_path}: {e}")
 
         if found_additional > 0:
             ws_info(
@@ -248,9 +238,7 @@ def clean_all_streams():
                 f"[OK] Successfully cleaned {cleaned_additional}/{found_additional} additional state files",
             )
         else:
-            ws_info(
-                "[STREAM_CLEANING]", "[INFO] No additional state files found to clean"
-            )
+            ws_info("[STREAM_CLEANING]", "[INFO] No additional state files found to clean")
 
         # Step 5: Handle NPM operations based on context
         ws_info("[STREAM_CLEANING]", "[STEP 5] Handling NPM operations...")
@@ -305,9 +293,7 @@ def clean_all_streams():
         ws_info("[STREAM_CLEANING]", "[INFO] Cleanup process completed.")
 
     except Exception as e:
-        ws_error(
-            "[STREAM_CLEANING]", f"[FATAL ERROR] Error during complete cleanup: {e}"
-        )
+        ws_error("[STREAM_CLEANING]", f"[FATAL ERROR] Error during complete cleanup: {e}")
         raise
 
 
@@ -323,8 +309,6 @@ def delete_specific_stream(id):
             os.remove(conf_file)
             ws_info("[STREAM_CLEANING]", f"Removed configuration file: {conf_file}")
         else:
-            ws_warning(
-                "[STREAM_CLEANING]", f"Configuration file not found: {conf_file}"
-            )
+            ws_warning("[STREAM_CLEANING]", f"Configuration file not found: {conf_file}")
     except Exception as e:
         ws_error("[STREAM_CLEANING]", f"Error deleting stream ID {id}: {e}")

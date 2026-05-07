@@ -1,14 +1,15 @@
+import os
 import shutil
 import subprocess
-from rich.console import Console
-import os
 import sys
+
+from rich.console import Console
 
 # Add the parent directory to the system path to allow imports from sibling modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from npm import npm_handler as npmh
 from Config import config as cfg
-from UI.console_handler import ws_info, ws_error, ws_warning
+from npm import npm_handler as npmh
+from UI.console_handler import ws_error, ws_info, ws_warning
 
 console = Console()
 
@@ -67,9 +68,7 @@ def check_npm():
             stderr=subprocess.PIPE,
             text=True,
         )
-        ws_info(
-            "[NPM_INSTALL]", f"Result of docker-compose ps:\n{result.stdout.strip()}"
-        )
+        ws_info("[NPM_INSTALL]", f"Result of docker-compose ps:\n{result.stdout.strip()}")
         running_services = result.stdout.strip().splitlines()
 
         if running_services:
@@ -83,9 +82,7 @@ def check_npm():
             return False
 
     except Exception as e:
-        ws_error(
-            "[NPM_INSTALL]", f"Error checking the status of Nginx Proxy Manager: {e}"
-        )
+        ws_error("[NPM_INSTALL]", f"Error checking the status of Nginx Proxy Manager: {e}")
         return False
 
 

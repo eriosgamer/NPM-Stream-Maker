@@ -15,23 +15,23 @@ Author: eriosgamer
 """
 
 import asyncio
-import os
-import sys
 import json
-import time
+import os
 import socket
+import sys
+import time
+
 import websockets
 from rich.console import Console
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ports import port_scanner
-from Wireguard import wireguard_tools as wg_tools
-from Core import message_handler as msg_handler
-from Config import config as cfg
-from WebSockets import websocket_config as ws_config
 from Client import ws_client_main_thread as wsc
-from UI.console_handler import ws_info, ws_error, ws_success, ws_warning
+from Core import message_handler as msg_handler
+from ports import port_scanner
+from UI.console_handler import ws_error, ws_info, ws_success, ws_warning
+from WebSockets import websocket_config as ws_config
+from Wireguard import wireguard_tools as wg_tools
 
 # Set to keep track of ports already sent to the server
 sent_ports = set()
@@ -119,9 +119,7 @@ async def send_broadcast_message(websocket, message_type, message_data):
 # =========================
 
 
-async def send_ports_to_server_sequential(
-    websocket, token, local_ip, hostname, new_ports
-):
+async def send_ports_to_server_sequential(websocket, token, local_ip, hostname, new_ports):
     """
     Sends ports to the server following the sequential flow:
     1. Sends to conflict resolution server.
@@ -203,12 +201,8 @@ async def send_ports_to_server_sequential(
                         # Handle any incoming messages (like port assignments)
                         try:
                             # Non-blocking check for messages
-                            incoming_msg = await asyncio.wait_for(
-                                websocket.recv(), timeout=1
-                            )
-                            await msg_handler.handle_server_message(
-                                json.loads(incoming_msg)
-                            )
+                            incoming_msg = await asyncio.wait_for(websocket.recv(), timeout=1)
+                            await msg_handler.handle_server_message(json.loads(incoming_msg))
                         except asyncio.TimeoutError:
                             pass  # No message, continue
                         except Exception as e:
@@ -227,9 +221,7 @@ async def send_ports_to_server_sequential(
                     )
                     current_ports = port_scanner.get_listening_ports_with_proto()
                     allowed_and_listening = [
-                        (port, proto)
-                        for port, proto in current_ports
-                        if port in wsc.allowed_ports
+                        (port, proto) for port, proto in current_ports if port in wsc.allowed_ports
                     ]
 
                     ws_info("[WS_CLIENT]", f"Detected ports: {len(current_ports)}")
@@ -262,7 +254,7 @@ async def send_ports_to_server_sequential(
                         else:
                             ws_error(
                                 "[WS_CLIENT]",
-                                f"Failed to process ports via sequential flow",
+                                "Failed to process ports via sequential flow",
                             )
 
                     # Update last seen times for current ports

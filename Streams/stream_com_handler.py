@@ -1,7 +1,8 @@
 import os
 import sqlite3
-from rich.console import Console
 import sys
+
+from rich.console import Console
 
 # Add the parent directory to sys.path to allow importing the config module
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -144,9 +145,7 @@ def check_existing_conflict_resolution(client_ip, original_port, protocol):
         return result if result else None
 
     except Exception as e:
-        ws_error(
-            "[STREAM_MANAGER]", f"Error checking existing conflict resolution: {e}"
-        )
+        ws_error("[STREAM_MANAGER]", f"Error checking existing conflict resolution: {e}")
         return None
     finally:
         conn.close()
