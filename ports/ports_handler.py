@@ -123,6 +123,28 @@ async def handler(websocket, path=None):
                     await message_handler.handle_server_message(data, websocket)
                     continue
 
+                # --- FIX: Register client on first valid token ---
+                # Get IP and hostname from message or use defaults
+                ip = data.get("ip", peer[0] if peer else "unknown")
+                hostname = data.get("hostname", "unknown")
+
+                # Register client for tracking
+                client_id = ws_server.get_client_id(ip, hostname)
+                if client_id not in cfg.connected_clients:
+                    cfg.connected_clients[client_id] = {
+                        "ip": ip,
+                        "hostname": hostname,
+                        "ws": websocket,
+                        "ports": set(),
+                        "last_seen": time.time(),
+                        "assigned_ports": {},
+                    }
+                else:
+                    # Update existing client info
+                    cfg.connected_clients[client_id]["ws"] = websocket
+                    cfg.connected_clients[client_id]["last_seen"] = time.time()
+                ws_info("[WS]", f"Client {hostname} ({ip}) registered")
+
                 # --- NEW: Update last_seen on ping messages ---
                 if message_type == "ping":
                     # Find the client_id corresponding to this websocket
