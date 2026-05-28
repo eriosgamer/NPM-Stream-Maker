@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sys
@@ -52,38 +53,37 @@ def check_pending_uri_updates():
         ws_info("[WS_CLIENT]", "[bold blue] No pending URI updates found[/bold blue]")
 
 
-# Copied
+CONFIG_HASH_FILE = "uri_config_hash.txt"
+
+
+def _get_current_config_hash():
+    """
+    Calculate the current configuration hash using SHA-256.
+    """
+    uri_token_pairs = diagnostics.get_ws_uris_and_tokens()
+    current_config = json.dumps(uri_token_pairs, sort_keys=True)
+    return hashlib.sha256(current_config.encode()).hexdigest()
+
+
 def has_uri_config_changed():
     """
     Check if URI configuration has changed since last run.
     Returns True if configuration has changed.
     """
-    config_hash_file = "uri_config_hash.txt"
+    current_hash = _get_current_config_hash()
 
-    # Get current configuration (list of URI/token pairs)
-    uri_token_pairs = diagnostics.get_ws_uris_and_tokens()
-    current_config = json.dumps(uri_token_pairs, sort_keys=True)
-
-    # Calculate current hash using SHA-256
-    import hashlib
-
-    current_hash = hashlib.sha256(current_config.encode()).hexdigest()
-
-    # Check against saved hash from previous run
-    if os.path.exists(config_hash_file):
+    if os.path.exists(CONFIG_HASH_FILE):
         try:
-            with open(config_hash_file) as f:
+            with open(CONFIG_HASH_FILE) as f:
                 saved_hash = f.read().strip()
 
             if current_hash != saved_hash:
-                # Print if configuration has changed
                 ws_info(
                     "[WS_CLIENT]",
                     "[bold cyan] URI configuration has changed[/bold cyan]",
                 )
                 return True
             else:
-                # Print if configuration is unchanged
                 ws_info(
                     "[WS_CLIENT]",
                     "[bold green] URI configuration unchanged[/bold green]",
@@ -91,11 +91,9 @@ def has_uri_config_changed():
                 return False
 
         except Exception as e:
-            # Print warning if there was a problem reading the hash
             ws_warning("[WS_CLIENT]", f" Error reading config hash: {e}")
             return True
     else:
-        # Print if no previous configuration hash was found
         ws_info(
             "[WS_CLIENT]",
             "[bold cyan] No previous configuration hash found[/bold cyan]",
@@ -103,29 +101,17 @@ def has_uri_config_changed():
         return True
 
 
-# Copied
 def save_last_uri_config():
     """
     Save the current URI configuration hash for change detection.
     """
-    config_hash_file = "uri_config_hash.txt"
-
     try:
-        # Get current configuration (list of URI/token pairs)
-        uri_token_pairs = diagnostics.get_ws_uris_and_tokens()
-        current_config = json.dumps(uri_token_pairs, sort_keys=True)
+        current_hash = _get_current_config_hash()
 
-        # Calculate and save hash using SHA-256
-        import hashlib
-
-        current_hash = hashlib.md5(current_config.encode()).hexdigest()
-
-        with open(config_hash_file, "w") as f:
+        with open(CONFIG_HASH_FILE, "w") as f:
             f.write(current_hash)
 
-        # Print confirmation that the hash was saved
         ws_info("[WS_CLIENT]", "[bold green] Saved URI configuration hash[/bold green]")
 
     except Exception as e:
-        # Print error if there was a problem saving the hash
         ws_error("[WS_CLIENT]", f"[bold red] Error saving config hash: {e}[/bold red]")
