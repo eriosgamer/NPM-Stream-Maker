@@ -175,7 +175,7 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
 
                 # Call the on_connect callback if provided
                 if on_connect is not None:
-                    await on_connect(websocket)
+                    await on_connect(websocket, server_token)
 
                 # --- NUEVO: Lógica de envío según tipo de servidor ---
                 allowed_ports = pfr.load_ports("ports.txt")

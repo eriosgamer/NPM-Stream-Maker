@@ -140,7 +140,7 @@ def ensure_ports_file():
         ws_info("[WS_CLIENT]", "Ports file is up to date.")
 
 
-async def send_ports_on_connect(ws):
+async def send_ports_on_connect(ws, token):
     """
     Envía la lista de puertos activos al servidor solo al conectar/reconectar.
     """
@@ -150,7 +150,7 @@ async def send_ports_on_connect(ws):
             # Solo incluir puertos activos (no todos los históricos)
             if assignment.get("assigned", True):
                 ports.append({"port": port, "protocol": proto})
-        msg = {"action": "register_ports", "ports": ports}
+        msg = {"action": "register_ports", "token": token, "ports": ports}
         await ws.send(json.dumps(msg))
     except Exception as e:
         ws_error("[WS_CLIENT]", f"Error sending ports after reconnection: {e}")
