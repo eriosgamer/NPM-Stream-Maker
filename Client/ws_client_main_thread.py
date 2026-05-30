@@ -75,7 +75,7 @@ async def send_ports_to_cr_and_forward_to_wg(
     Sends ports to the CR server, waits for approval, and forwards approved ports to WG servers.
     Returns True if the flow completed successfully.
     """
-    if not server_caps.get("conflict_resolution", False):
+    if not server_caps.get("conflict_resolution_server", False):
         return False
 
     port_list = [{"port": p, "protocol": pr} for p, pr in ports_to_send]
@@ -444,7 +444,7 @@ async def ws_client_main_loop(server_uri=None, server_token=None):
                             port_last_seen,
                             forwarding_info,
                         )
-                        if not success and server_caps.get("conflict_resolution", False):
+                        if not success and server_caps.get("conflict_resolution_server", False):
                             ws_error(
                                 "WS_CLIENT", f"Failed to send {len(new_ports)} ports to CR server"
                             )
