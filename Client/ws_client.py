@@ -140,22 +140,6 @@ def ensure_ports_file():
         ws_info("[WS_CLIENT]", "Ports file is up to date.")
 
 
-async def send_ports_on_connect(ws, token):
-    """
-    Envía la lista de puertos activos al servidor solo al conectar/reconectar.
-    """
-    try:
-        ports = []
-        for (port, proto), assignment in cfg.client_assignments.items():
-            # Solo incluir puertos activos (no todos los históricos)
-            if assignment.get("assigned", True):
-                ports.append({"port": port, "protocol": proto})
-        msg = {"action": "register_ports", "token": token, "ports": ports}
-        await ws.send(json.dumps(msg))
-    except Exception as e:
-        ws_error("[WS_CLIENT]", f"Error sending ports after reconnection: {e}")
-
-
 async def main(valid_uri_token_pairs=None):
     """
     Main function to run the WebSocket client with server discovery.
@@ -171,11 +155,7 @@ async def main(valid_uri_token_pairs=None):
     tasks = []
     for uri, token in valid_uri_token_pairs:
         tasks.append(
-            asyncio.create_task(
-                wscth.ws_client_main_loop(
-                    on_connect=send_ports_on_connect, server_uri=uri, server_token=token
-                )
-            )
+            asyncio.create_task(wscth.ws_client_main_loop(server_uri=uri, server_token=token))
         )
     try:
         await asyncio.gather(*tasks)

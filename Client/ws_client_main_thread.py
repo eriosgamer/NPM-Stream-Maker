@@ -59,7 +59,91 @@ _iteration_counter = 0
 # -----------------------------------------------------------------------------
 
 
-async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=None):
+async def send_ports_to_cr_and_forward_to_wg(
+    websocket,
+    server_token,
+    server_caps,
+    server_uri,
+    ports_to_send,
+    local_ip,
+    hostname,
+    sent_ports_set,
+    port_last_seen_dict,
+    forwarding_info,
+):
+    """
+    Sends ports to the CR server, waits for approval, and forwards approved ports to WG servers.
+    Returns True if the flow completed successfully.
+    """
+    if not server_caps.get("conflict_resolution", False):
+        return False
+
+    port_list = [{"port": p, "protocol": pr} for p, pr in ports_to_send]
+    for entry in port_list:
+        key = (entry["port"], entry["protocol"])
+        if key in forwarding_info:
+            entry.update(forwarding_info[key])
+
+    table = Table(
+        title="Ports sent to CR server",
+        box=box.SIMPLE,
+        show_lines=True,
+    )
+    table.add_column("Port", style="magenta", justify="right")
+    table.add_column("Protocol", style="cyan", justify="center")
+    for p in port_list:
+        table.add_row(str(p["port"]), p["protocol"].upper())
+    console = Console()
+    console.print(Panel(table, title="[bold green]WS_CLIENT[/bold green]", expand=False))
+
+    data = {
+        "type": "conflict_resolution_ports",
+        "token": server_token,
+        "ip": local_ip,
+        "hostname": hostname,
+        "ports": port_list,
+    }
+    ws_info("[DEBUG]", f"Sent message to CR server: {data}")
+    await websocket.send(json.dumps(data))
+
+    try:
+        response_msg = await asyncio.wait_for(websocket.recv(), timeout=RESPONSE_TIMEOUT)
+        response = json.loads(response_msg)
+        ws_info("[DEBUG]", f"Received response from CR server: {response}")
+    except asyncio.TimeoutError:
+        ws_error("WS_CLIENT", f"CR server response timeout after {RESPONSE_TIMEOUT}s")
+        return False
+    except websockets.exceptions.ConnectionClosed:
+        ws_error("WS_CLIENT", "Connection closed by CR server")
+        return False
+    except Exception as e:
+        ws_error("WS_CLIENT", f"Error waiting for CR response: {e}")
+        return False
+
+    if response.get("type") != "client_port_conflict_resolution_response":
+        ws_error("WS_CLIENT", f"Unexpected CR response: {response}")
+        return False
+
+    approved_ports = response.get("resultados", [])
+    if not approved_ports:
+        ws_warning("WS_CLIENT", "CR server returned no approved ports")
+        return False
+
+    ws_success("WS_CLIENT", f"Received {len(approved_ports)} approved ports from CR server")
+
+    wg_successes = await server_querys.send_pre_approved_ports_to_wireguard_servers(
+        approved_ports, local_ip, hostname
+    )
+    ws_info("WS_CLIENT", f"Forwarded approved ports to {len(wg_successes)} WG servers")
+
+    sent_ports_set.update(ports_to_send)
+    for port, proto in ports_to_send:
+        port_last_seen_dict[(port, proto)] = time.time()
+
+    return True
+
+
+async def ws_client_main_loop(server_uri=None, server_token=None):
     """
     Main client loop that maintains persistent connection and detects server disconnects.
     Now connects to a specific server_uri/token.
@@ -173,10 +257,6 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                 reconnect_delay = INITIAL_RECONNECT_DELAY
                 ws_connection("WS_CLIENT", server_uri, "connected")
 
-                # Call the on_connect callback if provided
-                if on_connect is not None:
-                    await on_connect(websocket, server_token)
-
                 # --- NUEVO: Lógica de envío según tipo de servidor ---
                 allowed_ports = pfr.load_ports("ports.txt")
                 current_ports = ps.get_listening_ports_with_proto()
@@ -269,123 +349,24 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                     )
 
                 if current_port_set:
-                    port_list = [
-                        {"port": port, "protocol": proto} for port, proto in current_port_set
-                    ]
-                    table = Table(
-                        title="Ports sent to server (reconnection)",
-                        box=box.SIMPLE,
-                        show_lines=True,
+                    success = await send_ports_to_cr_and_forward_to_wg(
+                        websocket,
+                        server_token,
+                        server_caps,
+                        server_uri,
+                        current_port_set,
+                        local_ip,
+                        hostname,
+                        sent_ports,
+                        port_last_seen,
+                        forwarding_info,
                     )
-                    table.add_column("Port", style="magenta", justify="right")
-                    table.add_column("Protocol", style="cyan", justify="center")
-                    for p in port_list:
-                        table.add_row(str(p["port"]), p["protocol"].upper())
-                    console = Console()
-                    console.print(
-                        Panel(
-                            table,
-                            title="[bold green]WS_CLIENT[/bold green]",
-                            expand=False,
+                    if success:
+                        ws_success(
+                            "WS_CLIENT", f"Sent {len(current_port_set)} ports after reconnection"
                         )
-                    )
-                    data = {
-                        "type": "conflict_resolution_ports",
-                        "token": server_token,
-                        "ip": local_ip,
-                        "hostname": hostname,
-                        "ports": port_list,
-                    }
-                    ws_info("[DEBUG]", f"Sent message to server: {data}")
-                    await websocket.send(json.dumps(data))
-                    # FIX #2: Wait for response with timeout and error handling
-                    try:
-                        response_msg = await asyncio.wait_for(
-                            websocket.recv(), timeout=RESPONSE_TIMEOUT
-                        )
-                        response = json.loads(response_msg)
-                        ws_info("[DEBUG]", f"Received response from server: {response}")
-
-                        # FIX #5: Validate server response
-                        if (
-                            response.get("status") != "ok"
-                            and "resultados" not in response
-                            and "type" not in response
-                        ):
-                            ws_error("WS_CLIENT", f"Invalid server response: {response}")
-                            await asyncio.sleep(reconnect_delay)
-                            continue
-
-                        if response.get("type") == "client_port_conflict_resolution_response":
-                            approved_ports = response.get("resultados", [])
-                            ws_info(
-                                "WS_CLIENT",
-                                f"Received {len(approved_ports)} approved ports from conflict resolution server",
-                            )
-                            # Enviar puertos aprobados a todos los servidores WireGuard configurados
-                            from Client import server_querys as sq
-
-                            wg_successes = await sq.send_pre_approved_ports_to_wireguard_servers(
-                                approved_ports, local_ip, hostname
-                            )
-                            ws_info(
-                                "WS_CLIENT",
-                                f"Forwarded approved ports to {len(wg_successes)} WireGuard servers",
-                            )
-                            # FIX #2: Wait for WireGuard confirmation with timeout
-                            try:
-                                wg_response_msg = await asyncio.wait_for(
-                                    websocket.recv(), timeout=WG_RESPONSE_TIMEOUT
-                                )
-                                ws_info(
-                                    "WS_CLIENT",
-                                    f"Respuesta recibida de WireGuard: {wg_response_msg}",
-                                )
-                                wg_response = json.loads(wg_response_msg)
-                                if wg_response.get("status") == "ok":
-                                    ws_success(
-                                        "WS_CLIENT",
-                                        f"WireGuard server processed {len(approved_ports)} ports successfully",
-                                    )
-                                    # Solo aquí marcar como procesados
-                                    sent_ports.update(current_port_set)
-                                else:
-                                    ws_error(
-                                        "WS_CLIENT",
-                                        f"WireGuard server did not confirm port processing: {wg_response}",
-                                    )
-                            except asyncio.TimeoutError:
-                                ws_warning(
-                                    "WS_CLIENT",
-                                    f"WireGuard response timeout after {WG_RESPONSE_TIMEOUT}s",
-                                )
-                            except websockets.exceptions.ConnectionClosed:
-                                ws_error(
-                                    "WS_CLIENT",
-                                    "Connection closed while waiting for WireGuard response",
-                                )
-                            except Exception as e:
-                                ws_error("WS_CLIENT", f"Error waiting for WireGuard response: {e}")
-                        elif response.get("type") == "error":
-                            ws_error("WS_CLIENT", f"Server returned error: {response.get('msg')}")
-                        else:
-                            ws_error(
-                                "WS_CLIENT",
-                                f"Unexpected response from conflict resolution server: {response}",
-                            )
-                    except asyncio.TimeoutError:
-                        ws_error("WS_CLIENT", f"Server response timeout after {RESPONSE_TIMEOUT}s")
-                    except websockets.exceptions.ConnectionClosed:
-                        ws_error("WS_CLIENT", "Connection closed by server")
-                    except Exception as e:
-                        ws_error("WS_CLIENT", f"Error waiting for approval response: {e}")
-                    sent_ports.update(current_port_set)
-                    for port, proto in current_port_set:
-                        port_last_seen[(port, proto)] = time.time()
-                    ws_success(
-                        "WS_CLIENT",
-                        f"Sent {len(current_port_set)} ports to server after reconnection",
-                    )
+                    else:
+                        ws_warning("WS_CLIENT", "Failed to send ports after reconnection")
                 else:
                     ws_warning("WS_CLIENT", "No ports to send after reconnection")
 
@@ -451,54 +432,22 @@ async def ws_client_main_loop(on_connect=None, server_uri=None, server_token=Non
                         new_ports = current_port_set - sent_ports
 
                     if new_ports:
-                        # Only send these ports to conflict resolution servers
-                        if not server_caps.get("conflict_resolution", False):
-                            ws_info(
-                                "[WS_CLIENT]",
-                                f"Server {server_uri} is not a conflict resolution server; skipping sending unapproved ports",
-                            )
-                        else:
-                            port_list = [
-                                {"port": port, "protocol": proto} for port, proto in new_ports
-                            ]
-                        # Añadir detalles de forwarding_info si existen (para puertos remotos manuales)
-                        for idx, entry in enumerate(port_list):
-                            key = (entry["port"], entry["protocol"])
-                            if key in forwarding_info:
-                                entry.update(forwarding_info[key])
-                        # Condensed output with Rich Table
-                        table = Table(
-                            title="Ports sent to server",
-                            box=box.SIMPLE,
-                            show_lines=True,
+                        success = await send_ports_to_cr_and_forward_to_wg(
+                            websocket,
+                            server_token,
+                            server_caps,
+                            server_uri,
+                            new_ports,
+                            local_ip,
+                            hostname,
+                            sent_ports,
+                            port_last_seen,
+                            forwarding_info,
                         )
-                        table.add_column("Port", style="magenta", justify="right")
-                        table.add_column("Protocol", style="cyan", justify="center")
-                        for p in port_list:
-                            table.add_row(str(p["port"]), p["protocol"].upper())
-                            console = Console()
-                            console.print(
-                                Panel(
-                                    table,
-                                    title="[bold green]WS_CLIENT[/bold green]",
-                                    expand=False,
-                                )
+                        if not success and server_caps.get("conflict_resolution", False):
+                            ws_error(
+                                "WS_CLIENT", f"Failed to send {len(new_ports)} ports to CR server"
                             )
-                        data = {
-                            "type": "conflict_resolution_ports",
-                            "token": server_token,
-                            "ip": local_ip,
-                            "hostname": hostname,
-                            "ports": port_list,
-                        }
-                        await websocket.send(json.dumps(data))
-                        sent_ports.update(new_ports)
-                        for port, proto in new_ports:
-                            port_last_seen[(port, proto)] = time.time()
-                        ws_success(
-                            "WS_CLIENT",
-                            f"Sent {len(new_ports)} new ports to server",
-                        )
                     else:
                         # Send a logical ping
                         await websocket.send(json.dumps({"type": "ping", "token": server_token}))
